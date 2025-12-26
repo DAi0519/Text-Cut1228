@@ -1,0 +1,5 @@
+{
+  "name": "TextCuts - Intelligent Card Splitter",
+  "description": "Transforms long-form articles into elegant, 3:4 aspect ratio typography cards using Gemini for semantic splitting.",
+  "requestFramePermissions": []
+}
