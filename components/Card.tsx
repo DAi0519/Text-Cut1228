@@ -219,7 +219,7 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
                         <textarea value={editTitle} onChange={(e) => setEditTitle(e.target.value)} placeholder="ENTER TITLE"
                           className={`w-full bg-transparent text-5xl font-bold leading-none outline-none border-b border-dashed border-current/30 py-2 ${inputBgColor} ${getFontClass(config.fontStyle)}`} rows={3} style={{ color: config.textColor, resize: 'none' }} />
                      ) : (
-                       <h2 className={`text-5xl font-bold leading-[1.05] text-left break-words ${getFontClass(config.fontStyle)}`} style={{ color: config.textColor }}>{editTitle || "UNTITLED"}</h2>
+                       <h2 className={`text-5xl font-bold leading-[1.05] text-left break-words whitespace-pre-wrap ${getFontClass(config.fontStyle)}`} style={{ color: config.textColor }}>{editTitle || "UNTITLED"}</h2>
                      )}
                   </div>
                </div>
@@ -235,7 +235,7 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
                   {isEditing ? (
                     <input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} placeholder="(No Title)"
                       className={`w-full bg-transparent text-[1.75rem] font-bold leading-tight outline-none border-b border-dashed border-current/30 py-1 ${inputBgColor} placeholder:text-current/20 ${getFontClass(config.fontStyle)}`} style={{ color: config.textColor }} />
-                  ) : ( editTitle && <h2 className={`text-[1.75rem] font-bold leading-tight ${getFontClass(config.fontStyle)}`} style={{ color: config.textColor }}>{editTitle}</h2> )}
+                  ) : ( editTitle && <h2 className={`text-[1.75rem] font-bold leading-tight whitespace-pre-wrap ${getFontClass(config.fontStyle)}`} style={{ color: config.textColor }}>{editTitle}</h2> )}
                 </div>
                 {(isEditing || editTitle) && <div className="w-12 h-[2px] mb-8 opacity-20 shrink-0" style={{ backgroundColor: config.accentColor }}></div>}
               </div>
@@ -276,7 +276,7 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
                   <textarea value={editTitle} onChange={(e) => setEditTitle(e.target.value)} placeholder="TITLE"
                     className={`w-full bg-transparent text-6xl md:text-7xl font-bold leading-none outline-none border-b-4 border-current py-4 ${inputBgColor} ${getFontClass(config.fontStyle)} tracking-tighter uppercase`} rows={3} style={{ color: config.textColor, resize: 'none' }} />
                ) : (
-                 <h2 className={`text-6xl md:text-7xl font-bold leading-[0.9] tracking-tighter uppercase break-words ${getFontClass(config.fontStyle)}`} style={{ color: config.textColor }}>
+                 <h2 className={`text-6xl md:text-7xl font-bold leading-[0.9] tracking-tighter uppercase break-words whitespace-pre-wrap ${getFontClass(config.fontStyle)}`} style={{ color: config.textColor }}>
                    {editTitle || "UNTITLED"}
                  </h2>
                )}
@@ -303,7 +303,7 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
                     <input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} placeholder="(Section Title)"
                       className={`w-full bg-transparent text-xl font-bold uppercase tracking-wide outline-none border-b border-current/30 ${inputBgColor} ${getFontClass(config.fontStyle)}`} style={{ color: config.textColor }} />
                   ) : ( editTitle && (
-                    <h2 className={`text-xl font-bold uppercase tracking-wide leading-tight opacity-90 ${getFontClass(config.fontStyle)}`} style={{ color: config.textColor }}>
+                    <h2 className={`text-xl font-bold uppercase tracking-wide leading-tight opacity-90 whitespace-pre-wrap ${getFontClass(config.fontStyle)}`} style={{ color: config.textColor }}>
                       {editTitle}
                     </h2>
                   ))}
@@ -371,7 +371,7 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
                     <textarea value={editTitle} onChange={(e) => setEditTitle(e.target.value)} 
                       className={`w-full bg-transparent text-6xl font-bold uppercase tracking-tighter outline-none ${inputBgColor} leading-[0.85]`} rows={4} style={{ color: config.textColor, resize: 'none' }} />
                  ) : (
-                   <h1 className="text-6xl font-bold uppercase tracking-tighter leading-[0.85] break-words hyphens-auto" style={{ wordSpacing: '9999px' }}>
+                   <h1 className="text-6xl font-bold uppercase tracking-tighter leading-[0.85] break-words hyphens-auto whitespace-pre-wrap">
                      {editTitle || "UNTITLED"}
                    </h1>
                  )}
@@ -449,7 +449,7 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
                   <textarea value={editTitle} onChange={(e) => setEditTitle(e.target.value)} placeholder="Title"
                     className={`w-full text-center bg-transparent text-3xl font-ming-light outline-none ${inputBgColor}`} rows={3} style={{ color: config.textColor, resize: 'none' }} />
                ) : (
-                 <h2 className="text-3xl font-ming-light leading-relaxed tracking-wide opacity-90">
+                 <h2 className="text-3xl font-ming-light leading-relaxed tracking-wide opacity-90 whitespace-pre-wrap">
                    {editTitle || "The Essence"}
                  </h2>
                )}
@@ -462,7 +462,7 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
                      <input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} 
                       className={`bg-transparent text-base text-center font-ming-light uppercase tracking-widest w-full outline-none opacity-60 ${inputBgColor}`} style={{ color: config.textColor }} />
                   ) : ( editTitle && (
-                     <h2 className="text-base font-ming-light uppercase tracking-widest opacity-60">{editTitle}</h2>
+                     <h2 className="text-base font-ming-light uppercase tracking-widest opacity-60 whitespace-pre-wrap">{editTitle}</h2>
                   ))}
                </div>
 
@@ -507,7 +507,7 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
                       <textarea value={editTitle} onChange={(e) => setEditTitle(e.target.value)} placeholder="Object"
                         className={`w-full bg-transparent text-5xl font-light tracking-tighter leading-tight outline-none ${inputBgColor}`} rows={3} style={{ color: config.textColor, resize: 'none' }} />
                    ) : (
-                     <h2 className="text-5xl font-light tracking-tighter leading-tight">
+                     <h2 className="text-5xl font-light tracking-tighter leading-tight whitespace-pre-wrap">
                        {editTitle || "Neo Object"}
                      </h2>
                    )}

@@ -265,9 +265,10 @@ const App: React.FC = () => {
 
                            <button 
                              onClick={() => handleDownload(idx)}
-                             className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-black/60 hover:text-black border border-black/10 hover:border-black/30 px-4 py-2 rounded-full bg-white hover:bg-white/80 transition-all shadow-sm"
+                             className="p-2 rounded-full border border-black/10 text-black/60 hover:text-black hover:border-black/30 bg-white hover:bg-white/80 transition-all shadow-sm"
+                             title="Download"
                            >
-                             Download <ArrowDownToLine size={12} />
+                             <ArrowDownToLine size={14} />
                            </button>
                          </>
                        )}
