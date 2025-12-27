@@ -369,9 +369,9 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
               <div className="flex-1 flex flex-col justify-center mb-8">
                  {isEditing ? (
                     <textarea value={editTitle} onChange={(e) => setEditTitle(e.target.value)} 
-                      className={`w-full bg-transparent text-6xl font-bold uppercase tracking-tighter outline-none ${inputBgColor} leading-[0.85]`} rows={4} style={{ color: config.textColor, resize: 'none' }} />
+                      className={`w-full bg-transparent text-6xl font-bold uppercase tracking-tighter outline-none ${inputBgColor} leading-[1.0]`} rows={4} style={{ color: config.textColor, resize: 'none' }} />
                  ) : (
-                   <h1 className="text-6xl font-bold uppercase tracking-tighter leading-[0.85] break-words hyphens-auto whitespace-pre-wrap">
+                   <h1 className="text-6xl font-bold uppercase tracking-tighter leading-[1.0] break-words hyphens-auto whitespace-pre-wrap">
                      {editTitle || "UNTITLED"}
                    </h1>
                  )}
