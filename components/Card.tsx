@@ -376,11 +376,11 @@ export const Card: React.FC<CardProps> = ({ content, sectionTitle, layout = 'sta
 
          {isCover ? (
            <div className="flex-1 flex flex-col relative p-6 z-10">
-              {/* REPLACED Useless Info with Minimal Progress Visual */}
-              <div className="w-full flex gap-1 mb-8 opacity-30">
-                 {Array.from({ length: total }).map((_, i) => (
-                    <div key={i} className={`h-1 flex-1 ${i <= index ? 'bg-current' : 'bg-current/20'}`}></div>
-                 ))}
+              {/* Minimal Geometric Decoration (Replaces Progress Bar) */}
+              <div className="mb-8 flex items-center gap-1 opacity-40">
+                  <div className="w-1 h-4 bg-current"></div>
+                  <div className="w-1 h-4 border border-current"></div>
+                  <div className="w-24 h-[1px] bg-current ml-2"></div>
               </div>
 
               {/* MASSIVE TITLE (Like "POLYMER") */}
