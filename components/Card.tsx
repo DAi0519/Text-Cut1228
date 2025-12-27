@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
+import React, { useState, useEffect, useRef, useLayoutEffect, forwardRef, useImperativeHandle } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { CardConfig, AspectRatio, CardSegment, FontStyle, Composition } from '../types';
-import { Pencil, Check, X, LayoutTemplate, Scissors, Crosshair } from 'lucide-react';
+import { Scissors } from 'lucide-react';
 
 interface CardProps {
   content: string;
@@ -10,12 +10,19 @@ interface CardProps {
   index: number;
   total: number;
   config: CardConfig;
-  cardRef?: React.Ref<HTMLDivElement>;
   onUpdate?: (data: CardSegment) => void;
   onSplit?: (contentToMove: string) => void;
 }
 
-export const Card: React.FC<CardProps> = ({ content, sectionTitle, layout = 'standard', index, total, config, cardRef, onUpdate, onSplit }) => {
+export interface CardHandle {
+  element: HTMLDivElement | null;
+  toggleLayout: () => void;
+  startEdit: () => void;
+  save: () => void;
+  cancel: () => void;
+}
+
+export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, layout = 'standard', index, total, config, onUpdate, onSplit }, ref) => {
   
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(sectionTitle);
@@ -24,22 +31,7 @@ export const Card: React.FC<CardProps> = ({ content, sectionTitle, layout = 'sta
   const [isOverflowing, setIsOverflowing] = useState(false);
   
   const contentRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    setEditTitle(sectionTitle);
-    const sanitizedContent = content ? content.replace(/\\n/g, '\n') : "";
-    setEditContent(sanitizedContent);
-    setCurrentLayout(layout);
-  }, [sectionTitle, content, layout]);
-
-  useLayoutEffect(() => {
-    if (contentRef.current && !isEditing) {
-      const { scrollHeight, clientHeight } = contentRef.current;
-      setIsOverflowing(scrollHeight > clientHeight + 2);
-    } else {
-      setIsOverflowing(false);
-    }
-  }, [editContent, currentLayout, config.fontSize, config.aspectRatio, config.title, config.authorName, isEditing, config.fontStyle, config.composition]);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const handleSave = () => {
     if (onUpdate) onUpdate({ title: editTitle, content: editContent, layout: currentLayout });
@@ -59,6 +51,31 @@ export const Card: React.FC<CardProps> = ({ content, sectionTitle, layout = 'sta
       onUpdate({ title: editTitle, content: editContent, layout: currentLayout === 'standard' ? 'cover' : 'standard' });
     }
   };
+
+  useImperativeHandle(ref, () => ({
+    element: containerRef.current,
+    toggleLayout: toggleLayout,
+    startEdit: () => setIsEditing(true),
+    save: handleSave,
+    cancel: handleCancel
+  }));
+
+  useEffect(() => {
+    setEditTitle(sectionTitle);
+    const sanitizedContent = content ? content.replace(/\\n/g, '\n') : "";
+    setEditContent(sanitizedContent);
+    setCurrentLayout(layout);
+  }, [sectionTitle, content, layout]);
+
+  useLayoutEffect(() => {
+    if (contentRef.current && !isEditing) {
+      const { scrollHeight, clientHeight } = contentRef.current;
+      setIsOverflowing(scrollHeight > clientHeight + 2);
+    } else {
+      setIsOverflowing(false);
+    }
+  }, [editContent, currentLayout, config.fontSize, config.aspectRatio, config.title, config.authorName, isEditing, config.fontStyle, config.composition]);
+
 
   const handleSplitCard = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -168,32 +185,6 @@ export const Card: React.FC<CardProps> = ({ content, sectionTitle, layout = 'sta
     )
   );
 
-  const renderEditControls = () => (
-    <>
-      {!isEditing ? (
-        <>
-          {onUpdate && (
-          <div className="flex items-center gap-2 opacity-0 group-hover/card:opacity-100 transition-opacity">
-              <button onClick={toggleLayout} className={`p-1.5 rounded-full hover:${inputBgColor}`} title="Toggle Layout">
-                <LayoutTemplate size={12} className="opacity-60" />
-              </button>
-              <button onClick={() => setIsEditing(true)} className={`p-1.5 rounded-full hover:${inputBgColor}`} title="Edit Card">
-                <Pencil size={12} className="opacity-60" />
-              </button>
-          </div>
-          )}
-        </>
-      ) : (
-        <div className="flex items-center gap-1 z-50 bg-white/10 backdrop-blur rounded p-1">
-          <button onClick={toggleLayout} className={`p-1.5 rounded hover:${inputBgColor} ${secondaryTextColor}`}><LayoutTemplate size={14} /></button>
-          <div className={`h-4 w-[1px] ${borderColor} mx-1`}></div>
-          <button onClick={handleCancel} className={`p-1.5 rounded hover:${inputBgColor} text-red-500`}><X size={14} /></button>
-          <button onClick={handleSave} className={`p-1.5 rounded hover:${inputBgColor} text-green-500`}><Check size={14} /></button>
-        </div>
-      )}
-    </>
-  );
-
   // --- LAYOUT THEMES ---
 
   // 1. CLASSIC: The original Dieter Rams-esque grid layout
@@ -206,7 +197,6 @@ export const Card: React.FC<CardProps> = ({ content, sectionTitle, layout = 'sta
            <span className="text-xs font-bold uppercase tracking-widest truncate max-w-[120px] opacity-80">{config.title || "Untitled"}</span>
         </div>
         <div className="flex items-center gap-4">
-           {renderEditControls()}
            <div className={`text-[10px] font-mono tracking-widest ${secondaryTextColor}`}>
              {String(index + 1).padStart(2, '0')}<span className="opacity-30 mx-1">/</span>{String(total).padStart(2, '0')}
            </div>
@@ -272,11 +262,7 @@ export const Card: React.FC<CardProps> = ({ content, sectionTitle, layout = 'sta
   // 2. SWISS: Bold, Asymmetric, Huge Typography, High Tension
   const renderSwiss = () => (
     <div className="flex flex-col h-full w-full relative">
-       {/* Absolute Positioned Controls to not break the grid */}
-       <div className="absolute top-4 right-4 z-50 flex items-center gap-2">
-         {renderEditControls()}
-       </div>
-
+       
        {isCover ? (
          <div className="flex-1 flex flex-col p-8 relative overflow-hidden">
              {/* Massive Background Decor */}
@@ -343,11 +329,7 @@ export const Card: React.FC<CardProps> = ({ content, sectionTitle, layout = 'sta
 
     return (
       <div className={`flex flex-col h-full w-full relative ${baseFont} overflow-hidden select-none`}>
-         {/* Controls */}
-         <div className="absolute top-2 right-2 z-50 flex items-center gap-2">
-           {renderEditControls()}
-         </div>
-
+         
          {/* --- HEADER STRIP (Like the "POLLUX INDUSTRIES / SERIES 7 / 17" line) --- */}
          <div className="h-10 shrink-0 flex items-end justify-between px-6 border-b-2 border-current pb-2 font-bold uppercase tracking-tighter text-[10px] leading-none z-20 bg-inherit">
             <div className="flex gap-4 items-baseline">
@@ -453,11 +435,7 @@ export const Card: React.FC<CardProps> = ({ content, sectionTitle, layout = 'sta
   const renderZen = () => {
     return (
       <div className="flex flex-col h-full w-full relative p-8">
-         {/* Controls */}
-         <div className="absolute top-4 right-4 z-50 flex items-center gap-2">
-           {renderEditControls()}
-         </div>
-
+         
          {/* The Anchor Point */}
          <div className="absolute top-8 left-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full z-10" style={{ backgroundColor: config.accentColor }}></div>
 
@@ -517,11 +495,6 @@ export const Card: React.FC<CardProps> = ({ content, sectionTitle, layout = 'sta
           {/* Ambient Glow */}
           <div className="absolute -top-20 -right-20 w-64 h-64 rounded-full blur-[80px] opacity-20 pointer-events-none" style={{backgroundColor: config.accentColor}}></div>
           
-          {/* Controls */}
-          <div className="absolute top-4 right-4 z-50 flex items-center gap-2">
-            {renderEditControls()}
-          </div>
-
           <div className="flex-1 p-8 flex flex-col relative z-10">
              {isCover ? (
                 <div className="flex-1 flex flex-col justify-center">
@@ -614,7 +587,7 @@ export const Card: React.FC<CardProps> = ({ content, sectionTitle, layout = 'sta
   
   return (
     <div 
-      ref={cardRef}
+      ref={containerRef}
       className={`relative group/card ${getAspectRatioClass(config.aspectRatio)} ${getFontClass(config.fontStyle)} w-full shrink-0 overflow-hidden flex flex-col transition-all duration-300`}
       style={getContainerStyle()}
     >
@@ -629,4 +602,4 @@ export const Card: React.FC<CardProps> = ({ content, sectionTitle, layout = 'sta
        
     </div>
   );
-};
+});

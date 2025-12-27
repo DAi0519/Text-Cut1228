@@ -1,9 +1,9 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { ControlPanel } from './components/ControlPanel';
-import { Card } from './components/Card';
+import { Card, CardHandle } from './components/Card';
 import { CardConfig, AspectRatio, CardSegment, FontStyle } from './types';
 import { splitTextIntoCards } from './services/geminiService';
-import { Download, Plus, Minus, Settings2, Play, ArrowDownToLine, X } from 'lucide-react';
+import { Download, Plus, Minus, Settings2, Play, ArrowDownToLine, X, Pencil, LayoutTemplate, Check } from 'lucide-react';
 import { toPng } from 'html-to-image';
 
 const App: React.FC = () => {
@@ -16,6 +16,7 @@ const App: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(0.85); 
   const [isPanelOpen, setIsPanelOpen] = useState(true); // Open by default for first visit
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
 
   const [config, setConfig] = useState<CardConfig>(() => {
     const defaultConfig = {
@@ -59,13 +60,14 @@ const App: React.FC = () => {
     }
   }, []);
 
-  const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const cardRefs = useRef<(CardHandle | null)[]>([]);
 
   // --- Handlers ---
   const handleProcess = async () => {
     if (!inputText) return;
     setIsProcessing(true);
     setIsPanelOpen(false); // Auto close panel on run
+    setEditingIndex(null);
     
     try {
       const segments = await splitTextIntoCards(inputText);
@@ -93,9 +95,31 @@ const App: React.FC = () => {
     });
   };
 
+  const handleStartEdit = (index: number) => {
+    // Auto-save previous if exists
+    if (editingIndex !== null && editingIndex !== index) {
+       cardRefs.current[editingIndex]?.save();
+    }
+    setEditingIndex(index);
+    // Direct call triggers internal state update in Card
+    cardRefs.current[index]?.startEdit();
+  };
+
+  const handleSaveEdit = (index: number) => {
+    cardRefs.current[index]?.save();
+    setEditingIndex(null);
+  };
+
+  const handleCancelEdit = (index: number) => {
+    cardRefs.current[index]?.cancel();
+    setEditingIndex(null);
+  };
+
   const handleDownload = useCallback(async (index: number) => {
-    const el = cardRefs.current[index];
-    if (!el) return;
+    const handle = cardRefs.current[index];
+    if (!handle || !handle.element) return;
+    const el = handle.element;
+
     try {
       // Small delay to ensure render is stable
       await new Promise(resolve => setTimeout(resolve, 50));
@@ -178,25 +202,76 @@ const App: React.FC = () => {
                       }}
                     >
                        <Card 
+                        ref={(handle) => { cardRefs.current[idx] = handle; }}
                         content={segment.content}
                         sectionTitle={segment.title} 
                         layout={segment.layout}
                         index={idx} 
                         total={cards.length} 
                         config={config} 
-                        cardRef={(el) => { cardRefs.current[idx] = el; }}
                         onUpdate={(updated) => handleUpdateCard(idx, updated)}
                         onSplit={(contentToMove) => handleSplitCard(idx, contentToMove)}
                       />
                     </div>
-                    {/* Card Actions */}
-                    <div className="mt-6 flex items-center gap-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                       <button 
-                         onClick={() => handleDownload(idx)}
-                         className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-black/40 hover:text-black transition-colors px-3 py-1.5 rounded-full hover:bg-white/50"
-                       >
-                         Download <ArrowDownToLine size={12} />
-                       </button>
+                    {/* Card Actions (Dieter Rams Style: Functional, grouped, clear) */}
+                    <div className="mt-6 flex items-center gap-3 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0">
+                       
+                       {editingIndex === idx ? (
+                         <>
+                           <button 
+                              onClick={() => cardRefs.current[idx]?.toggleLayout()}
+                              className="p-2 rounded-full border border-black/10 text-black/60 hover:text-black hover:border-black/30 bg-white hover:bg-white/80 transition-all"
+                              title="Toggle Layout"
+                            >
+                              <LayoutTemplate size={14} />
+                           </button>
+
+                           <div className="w-px h-4 bg-black/10 mx-1"></div>
+
+                           <button 
+                             onClick={() => handleCancelEdit(idx)}
+                             className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-red-500 hover:text-red-600 border border-red-100 hover:border-red-200 px-4 py-2 rounded-full bg-white hover:bg-red-50 transition-all shadow-sm"
+                           >
+                             <X size={12} /> Cancel
+                           </button>
+
+                           <button 
+                             onClick={() => handleSaveEdit(idx)}
+                             className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-green-600 hover:text-green-700 border border-green-100 hover:border-green-200 px-4 py-2 rounded-full bg-white hover:bg-green-50 transition-all shadow-sm"
+                           >
+                             <Check size={12} /> Confirm
+                           </button>
+                         </>
+                       ) : (
+                         <>
+                           <div className="flex items-center gap-1">
+                              <button 
+                                onClick={() => cardRefs.current[idx]?.toggleLayout()}
+                                className="p-2 rounded-full border border-black/10 text-black/60 hover:text-black hover:border-black/30 bg-white hover:bg-white/80 transition-all"
+                                title="Toggle Layout"
+                              >
+                                <LayoutTemplate size={14} />
+                              </button>
+                              <button 
+                                onClick={() => handleStartEdit(idx)}
+                                className="p-2 rounded-full border border-black/10 text-black/60 hover:text-black hover:border-black/30 bg-white hover:bg-white/80 transition-all"
+                                title="Edit Content"
+                              >
+                                <Pencil size={14} />
+                              </button>
+                           </div>
+
+                           <div className="w-px h-4 bg-black/10 mx-1"></div>
+
+                           <button 
+                             onClick={() => handleDownload(idx)}
+                             className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-black/60 hover:text-black border border-black/10 hover:border-black/30 px-4 py-2 rounded-full bg-white hover:bg-white/80 transition-all shadow-sm"
+                           >
+                             Download <ArrowDownToLine size={12} />
+                           </button>
+                         </>
+                       )}
+
                     </div>
                   </div>
                 ))}
