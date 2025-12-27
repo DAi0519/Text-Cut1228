@@ -106,10 +106,11 @@ export const Card: React.FC<CardProps> = ({ content, sectionTitle, layout = 'sta
   };
 
   // Shared Styles
-  const gridColor = config.colorway === 'carbon' ? 'bg-white/5' : 'bg-black/5';
-  const borderColor = config.colorway === 'carbon' ? 'border-white/10' : 'border-black/10';
-  const secondaryTextColor = config.colorway === 'carbon' ? 'text-white/40' : 'text-black/40';
-  const inputBgColor = config.colorway === 'carbon' ? 'bg-white/10' : 'bg-black/5';
+  const isDark = config.colorway === 'carbon' || config.colorway === 'neon';
+  const gridColor = isDark ? 'bg-white/5' : 'bg-black/5';
+  const borderColor = isDark ? 'border-white/10' : 'border-black/10';
+  const secondaryTextColor = isDark ? 'text-white/40' : 'text-black/40';
+  const inputBgColor = isDark ? 'bg-white/10' : 'bg-black/5';
 
   const isCover = currentLayout === 'cover';
 
@@ -117,7 +118,8 @@ export const Card: React.FC<CardProps> = ({ content, sectionTitle, layout = 'sta
   const renderMarkdownContent = () => (
     <div 
       ref={contentRef}
-      className="prose prose-sm max-w-none h-full overflow-hidden" 
+      // Added flexible centering for Technical mode
+      className={`prose prose-sm max-w-none h-full overflow-hidden ${config.composition === 'technical' ? 'flex flex-col justify-center' : ''}`}
       style={{
         lineHeight: 1.75,
         opacity: 0.9,
@@ -154,7 +156,7 @@ export const Card: React.FC<CardProps> = ({ content, sectionTitle, layout = 'sta
 
   const renderOverflowBtn = () => (
     isOverflowing && !isEditing && (
-      <div className={`absolute bottom-0 left-0 right-0 h-24 ${config.colorway === 'carbon' ? 'bg-gradient-to-t from-black/90' : 'bg-gradient-to-t from-white/90'} to-transparent flex items-end justify-center pb-4 z-20`}>
+      <div className={`absolute bottom-0 left-0 right-0 h-24 ${isDark ? 'bg-gradient-to-t from-black/90' : 'bg-gradient-to-t from-white/90'} to-transparent flex items-end justify-center pb-4 z-20`}>
           <button 
             onClick={handleSplitCard}
             className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold uppercase tracking-widest rounded shadow-lg transition-transform hover:scale-105 active:scale-95 animate-bounce"
@@ -229,7 +231,6 @@ export const Card: React.FC<CardProps> = ({ content, sectionTitle, layout = 'sta
                      ) : (
                        <h2 className={`text-5xl font-bold leading-[1.05] text-left break-words ${getFontClass(config.fontStyle)}`} style={{ color: config.textColor }}>{editTitle || "UNTITLED"}</h2>
                      )}
-                     {/* Removed Author Display in Cover */}
                   </div>
                </div>
              </div>
@@ -258,7 +259,7 @@ export const Card: React.FC<CardProps> = ({ content, sectionTitle, layout = 'sta
       </div>
 
       {/* Footer */}
-      <div className={`h-12 shrink-0 border-t ${borderColor} flex items-center justify-between px-8 ${config.colorway === 'carbon' ? 'bg-white/5' : 'bg-black/5'} font-sans`}>
+      <div className={`h-12 shrink-0 border-t ${borderColor} flex items-center justify-between px-8 ${isDark ? 'bg-white/5' : 'bg-black/5'} font-sans`}>
         <div className="flex items-center gap-4">
            {config.authorName && <span className="text-[9px] font-bold tracking-widest uppercase opacity-40">Authored by {config.authorName}</span>}
         </div>
@@ -293,7 +294,6 @@ export const Card: React.FC<CardProps> = ({ content, sectionTitle, layout = 'sta
                    {editTitle || "UNTITLED"}
                  </h2>
                )}
-               {/* Removed Author Display in Cover */}
              </div>
          </div>
        ) : (
@@ -336,87 +336,115 @@ export const Card: React.FC<CardProps> = ({ content, sectionTitle, layout = 'sta
     </div>
   );
 
-  // 4. TECHNICAL: Schematic, Blueprint, Monospaced precision
+  // 4. TECHNICAL: Inspired by "Polymer 48" / "Detroit Fault Line" / "AR/17"
   const renderTechnical = () => {
-    // Override to mono for authentic schematic look if user hasn't forced something else
-    const techFont = config.fontStyle === FontStyle.SERIF ? getFontClass(FontStyle.MONO) : getFontClass(config.fontStyle);
-    
+    // Force Sans or Mono usually looks best, but let's respect config if possible, or lean towards Sans/Mono mix.
+    const baseFont = getFontClass(FontStyle.SANS); 
+
     return (
-      <div className={`flex flex-col h-full w-full relative ${techFont} p-1`}>
+      <div className={`flex flex-col h-full w-full relative ${baseFont} overflow-hidden select-none`}>
          {/* Controls */}
-         <div className="absolute top-4 right-4 z-50 flex items-center gap-2">
+         <div className="absolute top-2 right-2 z-50 flex items-center gap-2">
            {renderEditControls()}
          </div>
-         
-         {/* Outer Container with slight inset */}
-         <div className="flex-1 border border-current/20 relative flex flex-col m-1">
-             {/* Corner Markers */}
-             <div className="absolute -top-[1px] -left-[1px] w-2 h-2 border-t-2 border-l-2" style={{ borderColor: config.accentColor }}></div>
-             <div className="absolute -top-[1px] -right-[1px] w-2 h-2 border-t-2 border-r-2" style={{ borderColor: config.accentColor }}></div>
-             <div className="absolute -bottom-[1px] -left-[1px] w-2 h-2 border-b-2 border-l-2" style={{ borderColor: config.accentColor }}></div>
-             <div className="absolute -bottom-[1px] -right-[1px] w-2 h-2 border-b-2 border-r-2" style={{ borderColor: config.accentColor }}></div>
 
-             {/* Header Info Strip */}
-             <div className="h-8 border-b border-current/20 flex items-center px-2 text-[9px] tracking-wider uppercase opacity-70 gap-4">
-                 <span className="shrink-0 font-bold">FIG. {String(index + 1).padStart(2, '0')}</span>
-                 <div className="h-full w-[1px] bg-current/20"></div>
-                 <span className="truncate flex-1">{config.title || "UNTITLED PROJECT"}</span>
-                 <span className="text-orange-600 font-bold" style={{ color: config.accentColor }}>REF-0{index + 1}</span>
-             </div>
-
-             {/* Main Area */}
-             <div className="flex-1 relative flex flex-col p-6 overflow-hidden">
-                {/* Ruler lines */}
-                <div className="absolute top-0 left-0 bottom-0 w-6 border-r border-dashed border-current/10 flex flex-col items-center py-2 gap-1 opacity-40">
-                    {[...Array(20)].map((_, i) => (
-                      <div key={i} className={`w-1.5 h-[1px] bg-current ${i%5===0 ? 'w-3' : ''}`}></div>
-                    ))}
-                </div>
-
-                <div className="pl-6 h-full flex flex-col">
-                  {isCover ? (
-                     <div className="flex-1 flex flex-col justify-center">
-                        <div className="border border-current/30 p-1 mb-4 inline-block w-fit">
-                           <span className="text-[8px] uppercase tracking-widest bg-current text-white px-1 py-0.5" style={{backgroundColor: config.accentColor}}>Subject</span>
-                        </div>
-                        {isEditing ? (
-                           <textarea value={editTitle} onChange={(e) => setEditTitle(e.target.value)} 
-                            className={`w-full bg-transparent text-4xl font-bold uppercase outline-none ${inputBgColor}`} rows={3} style={{ color: config.textColor, resize: 'none' }} />
-                        ) : (
-                          <h2 className="text-4xl font-bold uppercase leading-tight tracking-tight mb-6">{editTitle || "SPECIFICATION"}</h2>
-                        )}
-                        <div className="h-[1px] w-full bg-current/20 my-4 relative">
-                           <div className="absolute top-1/2 right-0 -translate-y-1/2 w-2 h-2 rounded-full border border-current" style={{borderColor: config.accentColor}}></div>
-                        </div>
-                        {/* Removed Author Display in Cover */}
-                     </div>
-                  ) : (
-                    <div className="flex-1 flex flex-col min-h-0">
-                       <div className="mb-4 pl-2 border-l-2 border-current/20">
-                          {isEditing ? (
-                             <input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} 
-                              className={`bg-transparent text-lg font-bold uppercase w-full outline-none ${inputBgColor}`} style={{ color: config.textColor }} placeholder="SECTION" />
-                          ) : ( editTitle && (
-                             <h2 className="text-lg font-bold uppercase tracking-wider">{editTitle}</h2>
-                          ))}
-                       </div>
-                       <div className="flex-1 min-h-0 relative" style={{ fontSize: `${config.fontSize}rem`, color: config.textColor }}>
-                          {isEditing ? (
-                            <textarea value={editContent} onChange={(e) => setEditContent(e.target.value)} className={`w-full h-full bg-transparent resize-none outline-none p-2 ${inputBgColor}`} style={{ color: config.textColor }} />
-                          ) : renderMarkdownContent()}
-                          {renderOverflowBtn()}
-                       </div>
-                    </div>
-                  )}
-                </div>
-             </div>
-
-             {/* Footer Specs */}
-             <div className="h-6 border-t border-current/20 flex items-center justify-between px-2 text-[8px] font-mono opacity-50 uppercase">
-                <span>SCALE: 1:1</span>
-                <span>UNIT: MM</span>
-             </div>
+         {/* --- HEADER STRIP (Like the "POLLUX INDUSTRIES / SERIES 7 / 17" line) --- */}
+         <div className="h-10 shrink-0 flex items-end justify-between px-6 border-b-2 border-current pb-2 font-bold uppercase tracking-tighter text-[10px] leading-none z-20 bg-inherit">
+            <div className="flex gap-4 items-baseline">
+               <span>{config.authorName || "SYS_OP"}</span>
+               <span className="opacity-30">/</span>
+               <span>SERIES {String(index + 1).padStart(2, '0')}</span>
+            </div>
+            {/* Functional Badge */}
+            <div className={`font-mono text-[9px] px-1 py-0.5 text-white font-bold uppercase`} style={{ backgroundColor: config.accentColor }}>
+               RUN_{new Date().getFullYear()}
+            </div>
          </div>
+
+         {/* SHARED BIG NUMBER - ABSOLUTE POSITIONED */}
+         {/* User wants it "tight to bottom edge" and fully displayed. */}
+         <div 
+            className={`absolute bottom-2 right-5 font-bold tracking-tighter leading-[0.8] select-none pointer-events-none z-0 transition-opacity duration-300`}
+            style={{ 
+               fontSize: '8rem', 
+               color: isCover ? config.accentColor : 'currentColor',
+               opacity: isCover ? 1 : 0.1 // Low opacity for body (watermark style)
+            }}
+         >
+            {String(index + 1).padStart(2, '0')}
+         </div>
+
+         {isCover ? (
+           <div className="flex-1 flex flex-col relative p-6 z-10">
+              {/* REPLACED Useless Info with Minimal Progress Visual */}
+              <div className="w-full flex gap-1 mb-8 opacity-30">
+                 {Array.from({ length: total }).map((_, i) => (
+                    <div key={i} className={`h-1 flex-1 ${i <= index ? 'bg-current' : 'bg-current/20'}`}></div>
+                 ))}
+              </div>
+
+              {/* MASSIVE TITLE (Like "POLYMER") */}
+              <div className="flex-1 flex flex-col justify-center mb-8">
+                 {isEditing ? (
+                    <textarea value={editTitle} onChange={(e) => setEditTitle(e.target.value)} 
+                      className={`w-full bg-transparent text-6xl font-bold uppercase tracking-tighter outline-none ${inputBgColor} leading-[0.85]`} rows={4} style={{ color: config.textColor, resize: 'none' }} />
+                 ) : (
+                   <h1 className="text-6xl font-bold uppercase tracking-tighter leading-[0.85] break-words hyphens-auto" style={{ wordSpacing: '9999px' }}>
+                     {editTitle || "UNTITLED"}
+                   </h1>
+                 )}
+              </div>
+
+              {/* Bottom Info Area - Number removed from here as it is now absolute */}
+              <div className="mt-auto border-t-2 border-current pt-4 flex items-end justify-between">
+                 <div className="flex flex-col gap-1 text-[9px] uppercase font-mono max-w-[100px]">
+                    <span className="opacity-50">Design Build</span>
+                    <span>{config.title || "Project"}</span>
+                    <span className="block w-4 h-4 rounded-full border border-current mt-2"></span>
+                 </div>
+              </div>
+           </div>
+         ) : (
+           <div className="flex-1 flex h-full z-10">
+              
+              {/* Left Sidebar (Metadata) - SIMPLIFIED & DECORATIVE ONLY */}
+              <div className="w-10 border-r border-current/20 flex flex-col items-center py-6 shrink-0 relative overflow-hidden bg-inherit">
+                  <div className="absolute inset-0 opacity-5 pointer-events-none" 
+                     style={{backgroundImage: `radial-gradient(circle, currentColor 1px, transparent 1px)`, backgroundSize: '4px 4px'}}></div>
+
+                 {/* Minimal Geometric Decoration - No Text */}
+                 <div className="w-1 h-1 bg-current rounded-full opacity-50 mb-4"></div>
+                 <div className="w-[1px] h-12 bg-current opacity-20"></div>
+                 <div className="flex-1"></div>
+                 <div className="w-3 h-3 border border-current opacity-30 rounded-full flex items-center justify-center">
+                    <div className="w-0.5 h-0.5 bg-current rounded-full"></div>
+                 </div>
+              </div>
+
+              {/* Main Content Area */}
+              <div className="flex-1 flex flex-col p-6 min-h-0">
+                 {/* Section Title Block */}
+                 <div className="shrink-0 mb-4 flex items-end justify-between border-b border-current/20 pb-2 min-h-[32px]">
+                    {isEditing ? (
+                       <input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} 
+                        className={`bg-transparent text-xl font-bold uppercase tracking-tight w-full outline-none ${inputBgColor}`} style={{ color: config.textColor }} placeholder="DATA BLOCK" />
+                    ) : ( editTitle && (
+                       <h2 className="text-xl font-bold uppercase tracking-tight leading-none">{editTitle}</h2>
+                    ))}
+                     {/* Decorative element instead of SECT text */}
+                    <div className="w-2 h-2 opacity-100" style={{ backgroundColor: config.accentColor }}></div>
+                 </div>
+                 
+                 {/* Text Body - Vertically Centered via renderMarkdownContent style logic */}
+                 <div className={`flex-1 min-h-0 relative flex flex-col justify-center leading-relaxed ${config.fontStyle === FontStyle.SERIF ? 'font-serif-sc' : 'font-mono'}`} style={{ fontSize: `${config.fontSize}rem`, color: config.textColor }}>
+                    {isEditing ? (
+                      <textarea value={editContent} onChange={(e) => setEditContent(e.target.value)} className={`w-full h-full bg-transparent resize-none outline-none p-2 ${inputBgColor}`} style={{ color: config.textColor }} />
+                    ) : renderMarkdownContent()}
+                    {renderOverflowBtn()}
+                 </div>
+              </div>
+           </div>
+         )}
       </div>
     );
   };
@@ -447,8 +475,6 @@ export const Card: React.FC<CardProps> = ({ content, sectionTitle, layout = 'sta
                    {editTitle || "The Essence"}
                  </h2>
                )}
-
-               {/* Removed Author Display in Cover */}
             </div>
          ) : (
             <div className="flex-1 flex flex-col pt-8 min-h-0 relative z-0">
@@ -512,8 +538,6 @@ export const Card: React.FC<CardProps> = ({ content, sectionTitle, layout = 'sta
                        {editTitle || "Neo Object"}
                      </h2>
                    )}
-
-                   {/* Removed Author Display in Cover */}
                 </div>
              ) : (
                <div className="flex-1 flex flex-col min-h-0">
@@ -582,7 +606,7 @@ export const Card: React.FC<CardProps> = ({ content, sectionTitle, layout = 'sta
     return {
       ...baseStyle,
       borderRadius: '16px',
-      boxShadow: config.colorway === 'carbon' 
+      boxShadow: isDark
           ? 'inset 0 1px 0 rgba(255,255,255,0.1), 0 24px 48px -12px rgba(0,0,0,0.6)' 
           : 'inset 0 1px 0 rgba(255,255,255,0.8), 0 24px 48px -12px rgba(0,0,0,0.1)',
     };

@@ -24,13 +24,13 @@ const COLORWAYS: Preset[] = [
     }
   },
   {
-    id: 'fog',
-    name: 'Fog',
+    id: 'neon',
+    name: 'Neon',
     config: {
-      colorway: 'fog',
-      backgroundColor: '#d4d4d8',
-      textColor: '#18181b',
-      accentColor: '#2563eb',
+      colorway: 'neon',
+      backgroundColor: '#111111',
+      textColor: '#ffffff',
+      accentColor: '#ccff00',
     }
   },
   {

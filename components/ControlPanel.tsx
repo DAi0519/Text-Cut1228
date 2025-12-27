@@ -17,9 +17,9 @@ const COLORWAYS: Preset[] = [
     config: { colorway: 'snow', backgroundColor: '#f4f4f5', textColor: '#18181b', accentColor: '#ea580c' }
   },
   {
-    id: 'fog',
-    name: 'Fog',
-    config: { colorway: 'fog', backgroundColor: '#d4d4d8', textColor: '#18181b', accentColor: '#2563eb' }
+    id: 'neon',
+    name: 'Neon',
+    config: { colorway: 'neon', backgroundColor: '#111111', textColor: '#ffffff', accentColor: '#ccff00' }
   },
   {
     id: 'carbon',

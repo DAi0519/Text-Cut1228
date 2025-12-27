@@ -12,7 +12,7 @@ export enum AspectRatio {
   WIDE = '16:9',
 }
 
-export type Colorway = 'snow' | 'carbon' | 'fog' | 'orange';
+export type Colorway = 'snow' | 'carbon' | 'neon';
 
 export type Composition = 'classic' | 'swiss' | 'technical' | 'zen' | 'neo';
 
