@@ -21,7 +21,7 @@ export const splitTextIntoCards = async (text: string): Promise<CardSegment[]> =
       3. SPLIT LOGIC: Create segments of roughly 50-80 words for the Content Cards.
       4. STRUCTURE:
          - **Segment 1 (The Title Card)**:
-           - Title: Generate a compelling, short main title for the piece.
+           - Title: Generate a compelling, short main title. WRAP the core subject or keywords (1-3 words) in **double asterisks** for emphasis (e.g. "The **Future** of AI").
            - Content: MUST BE AN EMPTY STRING "". Do not put the first paragraph here. Move it to Segment 2.
            - Layout: "cover".
          - **Middle Segments (The Body)**:

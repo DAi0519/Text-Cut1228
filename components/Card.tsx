@@ -148,7 +148,7 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
     >
       <ReactMarkdown 
         components={{
-          p: ({node, ...props}) => <p className="mb-5 last:mb-0 text-justify hyphens-auto font-normal" {...props} />,
+          p: ({node, ...props}) => <p className="mb-5 last:mb-0 text-justify hyphens-auto font-normal whitespace-pre-line" {...props} />,
           strong: ({node, ...props}) => <strong className="font-semibold" {...props} />,
           ul: ({node, ...props}) => <ul className="list-none pl-0 my-4 space-y-2 [counter-reset:list-counter]" {...props} />,
           ol: ({node, ...props}) => <ol className="list-none pl-0 my-4 space-y-2 [counter-reset:list-counter]" {...props} />,
@@ -219,7 +219,13 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
                         <textarea value={editTitle} onChange={(e) => setEditTitle(e.target.value)} placeholder="ENTER TITLE"
                           className={`w-full bg-transparent text-5xl font-bold leading-none outline-none border-b border-dashed border-current/30 py-2 ${inputBgColor} ${getFontClass(config.fontStyle)}`} rows={3} style={{ color: config.textColor, resize: 'none' }} />
                      ) : (
-                       <h2 className={`text-5xl font-bold leading-[1.05] text-left break-words whitespace-pre-wrap ${getFontClass(config.fontStyle)}`} style={{ color: config.textColor }}>{editTitle || "UNTITLED"}</h2>
+                       <h2 className={`text-5xl font-bold leading-[1.05] text-left break-words whitespace-pre-wrap ${getFontClass(config.fontStyle)}`} style={{ color: config.textColor }}>
+                        {(editTitle || "UNTITLED").split(/(\*\*[\s\S]*?\*\*)/g).map((part, i) => 
+                          part.startsWith('**') && part.endsWith('**') 
+                            ? <span key={i} style={{ color: config.accentColor }}>{part.slice(2, -2)}</span> 
+                            : part
+                        )}
+                       </h2>
                      )}
                   </div>
                </div>

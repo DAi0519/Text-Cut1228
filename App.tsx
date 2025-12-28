@@ -124,9 +124,24 @@ const App: React.FC = () => {
       // Small delay to ensure render is stable
       await new Promise(resolve => setTimeout(resolve, 50));
       
+      const width = 380;
+      // Capture the exact height of the element as currently rendered (constrained by aspect ratio)
+      const height = el.offsetHeight;
+
       const dataUrl = await toPng(el, { 
         cacheBust: true, 
         pixelRatio: 3,
+        width: width,
+        height: height,
+        style: {
+           // Explicitly set dimensions on the clone to prevent zoom/transform inheritance issues
+           width: `${width}px`,
+           height: `${height}px`,
+           zoom: '1',
+           transform: 'none',
+           margin: '0',
+           maxHeight: 'none',
+        },
         // Filter out the external font link if it still exists to prevent double loading/errors
         filter: (node) => {
           if (node.tagName === 'LINK' && (node as HTMLLinkElement).href.includes('lxgw-zhi-song-screen-web')) {
