@@ -105,12 +105,9 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
     }
   };
 
-  const getAspectRatioClass = (ratio: AspectRatio) => {
-    switch (ratio) {
-      case AspectRatio.SQUARE: return 'aspect-square';
-      case AspectRatio.WIDE: return 'aspect-[16/9]';
-      case AspectRatio.PORTRAIT: default: return 'aspect-[3/4]';
-    }
+  const getAspectRatioStyle = (ratio: AspectRatio) => {
+    // Convert "3:4" to standard CSS "3/4"
+    return ratio.replace(':', '/');
   };
 
   const getFontClass = (style?: FontStyle) => {
@@ -138,7 +135,7 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
       // Added flexible centering for Technical mode
       className={`prose prose-sm max-w-none h-full overflow-hidden ${config.composition === 'technical' ? 'flex flex-col justify-center' : ''}`}
       style={{
-        lineHeight: 1.75,
+        lineHeight: 1.75, // REVERTED: Back to 1.75 for loose, elegant feel
         opacity: 0.9,
         '--tw-prose-body': config.textColor,
         '--tw-prose-headings': config.textColor,
@@ -148,20 +145,72 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
     >
       <ReactMarkdown 
         components={{
-          p: ({node, ...props}) => <p className="mb-5 last:mb-0 text-justify hyphens-auto font-normal whitespace-pre-line" {...props} />,
+          // CHANGED: Reduced margin bottom from mb-5 to mb-3
+          p: ({node, ...props}) => <p className="mb-3 last:mb-0 text-justify hyphens-auto font-normal whitespace-pre-line" {...props} />,
           strong: ({node, ...props}) => <strong className="font-semibold" {...props} />,
-          ul: ({node, ...props}) => <ul className="list-none pl-0 my-4 space-y-2 [counter-reset:list-counter]" {...props} />,
-          ol: ({node, ...props}) => <ol className="list-none pl-0 my-4 space-y-2 [counter-reset:list-counter]" {...props} />,
-          li: ({node, ...props}: any) => (
-            <li className="flex gap-4 items-baseline [counter-increment:list-counter]" {...props}>
-                <span className="text-[10px] font-mono opacity-40 shrink-0 after:content-[counter(list-counter,decimal-leading-zero)]"></span>
-                <span>{props.children}</span>
-            </li>
-          ),
-          h1: ({node, ...props}) => <strong className="block text-sm font-bold uppercase tracking-widest mb-3 mt-4 opacity-80" {...props} />,
-          h2: ({node, ...props}) => <strong className="block text-sm font-bold uppercase tracking-wide mb-2 mt-4 opacity-80" {...props} />,
+          
+          // Lists: Filter valid children to ensure correct indexing
+          ul: ({node, children, ...props}) => {
+            const validChildren = React.Children.toArray(children).filter(child => React.isValidElement(child));
+            return (
+              // CHANGED: Reduced vertical margins (my-4 -> my-2) and spacing (space-y-2 -> space-y-1)
+              <ul className="list-none pl-0 my-2 space-y-1" {...props}>
+                 {validChildren.map((child, index) => {
+                    return React.cloneElement(child as React.ReactElement, { 
+                      key: index,
+                      // @ts-ignore - Custom prop
+                      markerType: 'bullet' 
+                    });
+                 })}
+              </ul>
+            );
+          },
+          ol: ({node, children, ...props}) => {
+            const validChildren = React.Children.toArray(children).filter(child => React.isValidElement(child));
+            return (
+              // CHANGED: Reduced vertical margins (my-4 -> my-2) and spacing (space-y-2 -> space-y-1)
+              <ol className="list-none pl-0 my-2 space-y-1" {...props}>
+                 {validChildren.map((child, index) => {
+                    return React.cloneElement(child as React.ReactElement, { 
+                      key: index,
+                      // @ts-ignore - Custom prop
+                      listIndex: index 
+                    });
+                 })}
+              </ol>
+            );
+          },
+          li: ({node, ...props}: any) => {
+            // Destructure custom props so they don't get passed to the DOM <li>
+            const { listIndex, markerType, children, ...rest } = props;
+            
+            // Determine the marker text
+            let marker = "";
+            if (typeof listIndex === 'number') {
+               marker = String(listIndex + 1).padStart(2, '0');
+            } else if (markerType === 'bullet') {
+               marker = "–";
+            } else {
+               // Fallback if rendered outside of our ul/ol overrides (rare)
+               marker = "•"; 
+            }
+
+            return (
+              <li className="flex gap-4 items-baseline" {...rest}>
+                  {/* Explicit Marker Rendering for Image Generation Stability */}
+                  <span className="text-[10px] font-mono opacity-40 shrink-0 select-none w-4 text-right">
+                    {marker}
+                  </span>
+                  <span className="flex-1 min-w-0 block">{children}</span>
+              </li>
+            );
+          },
+          // CHANGED: Slightly tighter header margins
+          h1: ({node, ...props}) => <strong className="block text-sm font-bold uppercase tracking-widest mb-2 mt-3 opacity-80" {...props} />,
+          h2: ({node, ...props}) => <strong className="block text-sm font-bold uppercase tracking-wide mb-1 mt-3 opacity-80" {...props} />,
+          // CHANGED: Reduced blockquote margins
           blockquote: ({node, ...props}) => (
-            <blockquote className="border-l-[3px] pl-5 my-6 italic opacity-75" style={{ borderColor: config.accentColor }} {...props} />
+            <blockquote className="border-l-[3px] pl-5 my-4 italic opacity-75" style={{ borderColor: config.accentColor }} {...props} />
           ),
           a: ({node, ...props}) => <span className="underline decoration-1 underline-offset-4 decoration-dotted opacity-80" {...props} />
         }}
@@ -207,7 +256,8 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
       </div>
 
       {/* Body */}
-      <div className="flex-1 relative flex flex-col p-8 overflow-hidden">
+      {/* CHANGED: p-8 to p-6 for more horizontal space, kept pt-8 for visual balance */}
+      <div className="flex-1 relative flex flex-col p-6 pt-8 overflow-hidden">
         {!isCover && <div className={`absolute top-0 left-8 w-[1px] h-full ${gridColor}`}></div>}
         <div className={`flex-1 relative z-10 flex flex-col h-full ${isCover ? 'justify-center' : 'pl-6'}`}>
           {isCover ? (
@@ -233,8 +283,8 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
           ) : (
             <>
               <div className="shrink-0 animate-in fade-in slide-in-from-top-2 duration-300">
-                <div className="mb-8">
-                  <div className="flex items-center gap-3 mb-3 opacity-60">
+                <div className="mb-6"> {/* CHANGED: mb-8 -> mb-6 */}
+                  <div className="flex items-center gap-3 mb-2 opacity-60"> {/* CHANGED: mb-3 -> mb-2 */}
                     <div className="w-2 h-2 border border-current opacity-50"></div>
                     <span className="font-mono text-[9px] uppercase tracking-[0.2em]">Segment {index + 1}</span>
                   </div>
@@ -243,7 +293,7 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
                       className={`w-full bg-transparent text-[1.75rem] font-bold leading-tight outline-none border-b border-dashed border-current/30 py-1 ${inputBgColor} placeholder:text-current/20 ${getFontClass(config.fontStyle)}`} style={{ color: config.textColor }} />
                   ) : ( editTitle && <h2 className={`text-[1.75rem] font-bold leading-tight whitespace-pre-wrap ${getFontClass(config.fontStyle)}`} style={{ color: config.textColor }}>{editTitle}</h2> )}
                 </div>
-                {(isEditing || editTitle) && <div className="w-12 h-[2px] mb-8 opacity-20 shrink-0" style={{ backgroundColor: config.accentColor }}></div>}
+                {(isEditing || editTitle) && <div className="w-12 h-[2px] mb-6 opacity-20 shrink-0" style={{ backgroundColor: config.accentColor }}></div>} {/* CHANGED: mb-8 -> mb-6 */}
               </div>
               <div className="flex-1 min-h-0 relative" style={{ fontSize: `${config.fontSize}rem`, color: config.textColor }}>
                 {isEditing ? <textarea value={editContent} onChange={(e) => setEditContent(e.target.value)} className={`w-full h-full bg-transparent resize-none outline-none p-2 rounded leading-relaxed text-sm opacity-90 ${inputBgColor}`} style={{ color: config.textColor }} /> : renderMarkdownContent()}
@@ -291,7 +341,8 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
        ) : (
          <div className="flex-1 flex flex-col relative">
             {/* Top Section: Massive Index + Title */}
-            <div className={`p-8 pb-6 flex flex-col justify-end min-h-[35%] border-b-4 ${borderColor}`}>
+            {/* CHANGED: min-h reduced from 35% to 30%, padding reduced from pb-6 to pb-4 */}
+            <div className={`p-8 pb-4 flex flex-col justify-end min-h-[30%] border-b-4 ${borderColor}`}>
                <div className="flex justify-between items-end">
                   <div className={`text-[8rem] leading-[0.7] font-bold tracking-tighter -ml-1 ${getFontClass(FontStyle.SANS)}`} style={{ color: config.textColor, opacity: 1 }}>
                      {String(index + 1).padStart(2,'0')}
@@ -463,7 +514,7 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
          ) : (
             <div className="flex-1 flex flex-col pt-8 min-h-0 relative z-0">
                {/* Minimal Title */}
-               <div className="text-center mb-8 shrink-0">
+               <div className="text-center mb-6 shrink-0"> {/* CHANGED: mb-8 -> mb-6 */}
                   {isEditing ? (
                      <input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} 
                       className={`bg-transparent text-base text-center font-ming-light uppercase tracking-widest w-full outline-none opacity-60 ${inputBgColor}`} style={{ color: config.textColor }} />
@@ -590,7 +641,8 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
                    <div className="flex-1 flex flex-col min-h-0 animate-in fade-in duration-500">
                       
                       {/* Title Section */}
-                      <div className="shrink-0 mb-6 pb-4 border-b border-current/10">
+                      {/* CHANGED: mb-4 -> mb-6 for slightly cleaner look but reduced border spacing */}
+                      <div className="shrink-0 mb-4 pb-2 border-b border-current/10"> 
                          {isEditing ? (
                             <input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} 
                              className={`bg-transparent text-xl font-semibold tracking-tight w-full outline-none ${inputBgColor} rounded px-1`} style={{ color: textColor }} placeholder="Header" />
@@ -676,8 +728,11 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
   return (
     <div 
       ref={containerRef}
-      className={`relative group/card ${getAspectRatioClass(config.aspectRatio)} ${getFontClass(config.fontStyle)} w-full shrink-0 overflow-hidden flex flex-col transition-all duration-300`}
-      style={getContainerStyle()}
+      className={`relative group/card ${getFontClass(config.fontStyle)} w-full shrink-0 overflow-hidden flex flex-col transition-all duration-300`}
+      style={{
+        ...getContainerStyle(),
+        aspectRatio: getAspectRatioStyle(config.aspectRatio)
+      }}
     >
        {/* Add a utility class for vertical writing mode which Tailwind doesn't have by default but modern browsers support */}
        <style>{`.writing-vertical-rl { writing-mode: vertical-rl; }`}</style>

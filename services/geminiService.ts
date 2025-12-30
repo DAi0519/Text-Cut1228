@@ -9,34 +9,48 @@ export const splitTextIntoCards = async (text: string): Promise<CardSegment[]> =
     const model = "gemini-3-flash-preview";
 
     const prompt = `
-      You are an expert editor and typographer.
-      Your task is to split the provided text into a specific sequence of presentation cards: 
-      1. A Title Card (with no body text)
-      2. Multiple Content Cards (containing the actual body text)
-      3. An End Card (with no body text)
+      You are an expert knowledge curator and editor.
+      Your task is to transform the provided text into a sequence of "Atomic Knowledge Cards" (3:4 aspect ratio).
       
-      Rules:
-      1. PRESERVE MARKDOWN: Keep all bold (**text**), italic (*text*), and lists (- item) intact.
-      2. PRESERVE WORDING: Do not change the author's words in the content.
-      3. SPLIT LOGIC: Create segments of roughly 50-80 words for the Content Cards.
-      4. STRUCTURE:
-         - **Segment 1 (The Title Card)**:
-           - Title: Generate a compelling, short main title. WRAP the core subject or keywords (1-3 words) in **double asterisks** for emphasis (e.g. "The **Future** of AI").
-           - Content: MUST BE AN EMPTY STRING "". Do not put the first paragraph here. Move it to Segment 2.
-           - Layout: "cover".
-         - **Middle Segments (The Body)**:
-           - Distribute ALL the input text here.
-           - Title: 
-             - For the very first body segment (Segment 2), provide a subtitle if applicable (e.g. "Introduction" or "Chapter 1"), otherwise leave empty.
-             - For subsequent segments, use a title ONLY if a new distinct topic starts.
-           - Content: The text chunk.
-           - Layout: "standard".
-         - **Last Segment (The End Card)**:
-           - Title: A closing phrase (e.g., "THE END", "FIN", or a short summary phrase).
-           - Content: MUST BE AN EMPTY STRING "".
-           - Layout: "cover".
-      5. Avoid breaking sentences awkwardly between body segments.
-      6. Return ONLY the JSON object.
+      CORE PRINCIPLES:
+      1. **ATOMIC INDEPENDENCE & SHORT TITLES**: 
+         - Each card must stand alone as an independent unit of knowledge.
+         - **EVERY CARD MUST HAVE A TITLE**.
+         - **GENERATE CONCISE TITLES**: Titles must be short, punchy summaries (max 1 line). 
+         - **NO NEWLINES IN TITLES**. If the original header is long, rewrite it to be shorter for the card title.
+         - If a section is split, carry context in the title (e.g., "History (II)").
+      
+      2. **NO REDUNDANCY (CRITICAL)**:
+         - **NEVER repeat the Title text inside the Content body.**
+         - If you extract a Header, Subtitle, or Bolded Lead-in from the text to serve as the 'title', **YOU MUST REMOVE IT** from the 'content'.
+         - The 'content' should start immediately with the body text *following* that header.
+         - Example:
+           [Original] "## 1. The Beginning\nIn the beginning..."
+           [Card] Title: "1. The Beginning" | Content: "In the beginning..." (Header removed from body)
+      
+      3. **STRICT VISUAL CAPACITY**:
+         - Target density: ~200-350 words (or ~400-600 CJK characters) per card.
+         - **IF A SECTION IS TOO LONG**: You MUST split it into multiple cards. Do not try to cram it all into one.
+      
+      4. **STRICT VERBATIM (BODY ONLY)**: 
+         - Do NOT change the author's wording within the content body paragraphs.
+         - You are organizing structure, removing headers that moved to titles, but keeping the prose intact.
+
+      STRUCTURE:
+      1. **Title Card** (First Segment):
+         - Title: Main Project Title (Shortened if needed).
+         - Content: EMPTY STRING "". 
+         - Layout: "cover".
+      2. **Content Cards** (Sequence):
+         - Title: Short, single-line extracted header or summary.
+         - Content: The body text (minus the header).
+         - Layout: "standard".
+      3. **End Card** (Last Segment):
+         - Title: "FIN".
+         - Content: EMPTY STRING "".
+         - Layout: "cover".
+
+      Return ONLY the JSON object.
       
       Input Text:
       ${text}
@@ -55,13 +69,13 @@ export const splitTextIntoCards = async (text: string): Promise<CardSegment[]> =
               items: { 
                 type: Type.OBJECT,
                 properties: {
-                  title: { type: Type.STRING, description: "Card title/subtitle." },
-                  content: { type: Type.STRING, description: "Card content. Empty for First/Last cards." },
+                  title: { type: Type.STRING, description: "Short, single-line title. No newlines." },
+                  content: { type: Type.STRING, description: "Card body text. Header MUST be removed from here." },
                   layout: { type: Type.STRING, enum: ["standard", "cover"], description: "Visual layout style." }
                 },
                 required: ["title", "content", "layout"]
               },
-              description: "The sequence of cards: Title Card -> Body Cards -> End Card."
+              description: "The sequence of cards."
             }
           },
           required: ["segments"]
@@ -84,6 +98,7 @@ export const splitTextIntoCards = async (text: string): Promise<CardSegment[]> =
     
     // Fallback: Manually create structure if API fails
     const segments: CardSegment[] = [];
+    const MAX_CHARS = 700; // Conservative limit for fallback
     
     // 1. Title Card
     segments.push({
@@ -92,15 +107,59 @@ export const splitTextIntoCards = async (text: string): Promise<CardSegment[]> =
       layout: "cover"
     });
 
-    // 2. Body Cards
-    const parts = text.split("\n\n").filter(t => t.trim().length > 0);
-    parts.forEach(part => {
-      segments.push({
-        title: "",
-        content: part,
-        layout: "standard"
-      });
+    // 2. Body Cards - Robust Splitting
+    const rawParagraphs = text.split("\n\n").filter(t => t.trim().length > 0);
+    
+    let currentChunk = "";
+    let currentTitle = "Note Sequence"; // Default fallback title
+    let partCounter = 1;
+
+    // Check for headings in fallback mode to update titles
+    rawParagraphs.forEach((part) => {
+      // Simple heuristic: Short lines without punctuation might be headers
+      if (part.length < 50 && !part.includes('.') && !part.includes('。')) {
+         // It's likely a header, push current chunk if exists
+         if (currentChunk) {
+            segments.push({
+              title: partCounter > 1 ? `${currentTitle} (${partCounter})` : currentTitle,
+              content: currentChunk,
+              layout: "standard"
+            });
+            currentChunk = "";
+            partCounter = 1;
+         }
+         currentTitle = part.replace(/#|\*/g, '').trim(); // Update context for next cards
+         // FALLBACK LOGIC: Return here means we SKIP adding this header to the next chunk's body
+         // This mimics the AI "No Redundancy" rule in local logic
+         return; 
+      }
+
+      // Logic: If adding this part exceeds max, push current and start new
+      if ((currentChunk.length + part.length) > MAX_CHARS) {
+        // Push the full card
+        segments.push({
+          title: partCounter > 1 ? `${currentTitle} (${partCounter})` : currentTitle,
+          content: currentChunk,
+          layout: "standard"
+        });
+        
+        // Reset
+        currentChunk = part;
+        partCounter++;
+      } else {
+        // Append
+        currentChunk += (currentChunk ? "\n\n" : "") + part;
+      }
     });
+    
+    // Push remaining
+    if (currentChunk) {
+        segments.push({
+          title: partCounter > 1 ? `${currentTitle} (${partCounter})` : currentTitle,
+          content: currentChunk,
+          layout: "standard"
+        });
+    }
 
     // 3. End Card
     segments.push({

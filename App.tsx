@@ -27,7 +27,7 @@ const App: React.FC = () => {
       fontStyle: FontStyle.SERIF,
       composition: 'classic',
       aspectRatio: AspectRatio.PORTRAIT,
-      fontSize: 0.9, 
+      fontSize: 1.0, 
       showMetadata: true,
       title: "",
       authorName: ""
@@ -124,8 +124,8 @@ const App: React.FC = () => {
       // Small delay to ensure render is stable
       await new Promise(resolve => setTimeout(resolve, 50));
       
-      const width = 380;
-      // Capture the exact height of the element as currently rendered (constrained by aspect ratio)
+      // Dynamically capture dimensions
+      const width = el.offsetWidth;
       const height = el.offsetHeight;
 
       const dataUrl = await toPng(el, { 
@@ -169,6 +169,18 @@ const App: React.FC = () => {
 
   const hasContent = cards.length > 0;
 
+  // Determine width based on aspect ratio to maintain content capacity
+  const getCardWidth = (ratio: AspectRatio) => {
+    switch (ratio) {
+      // 16:9 - Needs significant width to ensure height is sufficient for text (Target Height ~450px)
+      case AspectRatio.WIDE: return '800px';
+      // 1:1 - Needs enough height (Target Height ~520px)
+      case AspectRatio.SQUARE: return '520px';
+      // 3:4 - Baseline (Width 380px -> Height ~506px)
+      case AspectRatio.PORTRAIT: default: return '380px';
+    }
+  };
+
   // --- Render ---
   return (
     <div className="relative h-screen w-full overflow-hidden bg-white font-sans text-[#18181b]">
@@ -208,9 +220,9 @@ const App: React.FC = () => {
                   <div key={idx} className="flex flex-col items-center group">
                     {/* Card Container */}
                     <div 
-                      className="transition-transform duration-500 ease-out rounded-2xl"
+                      className="transition-all duration-500 ease-out rounded-2xl shadow-sm"
                       style={{ 
-                        width: '380px', 
+                        width: getCardWidth(config.aspectRatio), 
                         // @ts-ignore
                         zoom: zoomLevel,
                         transformOrigin: 'center top'
