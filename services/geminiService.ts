@@ -9,49 +9,41 @@ export const splitTextIntoCards = async (text: string): Promise<CardSegment[]> =
     const model = "gemini-3-flash-preview";
 
     const prompt = `
-      You are an expert knowledge curator and editor.
-      Your task is to transform the provided text into a sequence of "Atomic Knowledge Cards" (3:4 aspect ratio).
+      You are an expert digital typesetter and editor.
+      Your goal is to split the input text into a sequence of "Mobile Cards" (3:4 aspect ratio).
       
-      CORE PRINCIPLES:
-      1. **ATOMIC INDEPENDENCE & SHORT TITLES**: 
-         - Each card must stand alone as an independent unit of knowledge.
-         - **EVERY CARD MUST HAVE A TITLE**.
-         - **GENERATE CONCISE TITLES**: Titles must be short, punchy summaries (max 1 line). 
-         - **NO NEWLINES IN TITLES**. If the original header is long, rewrite it to be shorter for the card title.
-         - If a section is split, carry context in the title (e.g., "History (II)").
-      
-      2. **NO REDUNDANCY (CRITICAL)**:
-         - **NEVER repeat the Title text inside the Content body.**
-         - If you extract a Header, Subtitle, or Bolded Lead-in from the text to serve as the 'title', **YOU MUST REMOVE IT** from the 'content'.
-         - The 'content' should start immediately with the body text *following* that header.
-         - Example:
-           [Original] "## 1. The Beginning\nIn the beginning..."
-           [Card] Title: "1. The Beginning" | Content: "In the beginning..." (Header removed from body)
-      
-      3. **STRICT VISUAL CAPACITY**:
-         - Target density: ~200-350 words (or ~400-600 CJK characters) per card.
-         - **IF A SECTION IS TOO LONG**: You MUST split it into multiple cards. Do not try to cram it all into one.
-      
-      4. **STRICT VERBATIM (BODY ONLY)**: 
-         - Do NOT change the author's wording within the content body paragraphs.
-         - You are organizing structure, removing headers that moved to titles, but keeping the prose intact.
+      *** CRITICAL RULES FOR SPLITTING ***
 
-      STRUCTURE:
-      1. **Title Card** (First Segment):
-         - Title: Main Project Title (Shortened if needed).
-         - Content: EMPTY STRING "". 
-         - Layout: "cover".
-      2. **Content Cards** (Sequence):
-         - Title: Short, single-line extracted header or summary.
-         - Content: The body text (minus the header).
-         - Layout: "standard".
-      3. **End Card** (Last Segment):
-         - Title: "FIN".
-         - Content: EMPTY STRING "".
-         - Layout: "cover".
+      1. **STRICT VISUAL CAPACITY (THE MOST IMPORTANT RULE)**:
+         - Mobile screens are small. **DO NOT CREATE WALLS OF TEXT.**
+         - **Max Length per Card**: 
+           - English: ~100-120 words.
+           - Chinese/CJK: ~180-220 characters.
+         - **If a section exceeds this, YOU MUST SPLIT IT.** 
+         - It is better to have 3 open, readable cards than 1 crowded card.
 
-      Return ONLY the JSON object.
-      
+      2. **INTELLIGENT CONTINUITY**:
+         - When splitting a long paragraph or section across multiple cards:
+           - End the first card at a logical pause (period, comma).
+           - Add sequence markers to titles: "Introduction (1/2)", "Introduction (2/2)".
+           - Do not leave "orphaned" sentences (single lines) if possible.
+
+      3. **MANDATORY TITLES**:
+         - **Every single card must have a title.**
+         - If the text has a header (e.g., "## 1. Overview"), use it as the title and **REMOVE IT from the content**.
+         - If no header exists for a section, generate a short (2-5 word) summary title.
+         - Titles must be single-line plain text.
+
+      4. **VERBATIM BODY TEXT**:
+         - The "content" field must contain the **exact original text** (minus the moved headers).
+         - Do not summarize. Do not rewrite.
+         - Preserve existing markdown formatting (bold, italics, lists).
+
+      5. **STRUCTURE**:
+         - **Card 1 (Cover)**: Title = Project Title, Content = "", Layout = "cover".
+         - **Card 2..N (Body)**: Title = Segment Title, Content = Segment Text, Layout = "standard".
+         - **Card N+1 (End)**: Title = "FIN", Content = "", Layout = "cover".
+
       Input Text:
       ${text}
     `;
@@ -69,21 +61,18 @@ export const splitTextIntoCards = async (text: string): Promise<CardSegment[]> =
               items: { 
                 type: Type.OBJECT,
                 properties: {
-                  title: { type: Type.STRING, description: "Short, single-line title. No newlines." },
-                  content: { type: Type.STRING, description: "Card body text. Header MUST be removed from here." },
-                  layout: { type: Type.STRING, enum: ["standard", "cover"], description: "Visual layout style." }
+                  title: { type: Type.STRING, description: "Card title. Max 20 chars." },
+                  content: { type: Type.STRING, description: "Body text. Max ~200 chars CJK or ~120 words EN." },
+                  layout: { type: Type.STRING, enum: ["standard", "cover"] }
                 },
                 required: ["title", "content", "layout"]
-              },
-              description: "The sequence of cards."
+              }
             }
-          },
-          required: ["segments"]
+          }
         }
       }
     });
 
-    // Clean potential markdown code blocks if the model includes them
     const jsonStr = response.text ? response.text.replace(/```json|```/g, "").trim() : "";
     
     if (!jsonStr) {
@@ -98,7 +87,8 @@ export const splitTextIntoCards = async (text: string): Promise<CardSegment[]> =
     
     // Fallback: Manually create structure if API fails
     const segments: CardSegment[] = [];
-    const MAX_CHARS = 700; // Conservative limit for fallback
+    // Significantly reduced MAX_CHARS from 700 to 300 to match visual capacity constraints
+    const MAX_CHARS = 300; 
     
     // 1. Title Card
     segments.push({
@@ -111,14 +101,12 @@ export const splitTextIntoCards = async (text: string): Promise<CardSegment[]> =
     const rawParagraphs = text.split("\n\n").filter(t => t.trim().length > 0);
     
     let currentChunk = "";
-    let currentTitle = "Note Sequence"; // Default fallback title
+    let currentTitle = "Note Sequence";
     let partCounter = 1;
 
-    // Check for headings in fallback mode to update titles
     rawParagraphs.forEach((part) => {
-      // Simple heuristic: Short lines without punctuation might be headers
-      if (part.length < 50 && !part.includes('.') && !part.includes('。')) {
-         // It's likely a header, push current chunk if exists
+      // Heuristic: Short lines without punctuation might be headers
+      if (part.length < 50 && !part.match(/[.,;!?。，；！？]/)) {
          if (currentChunk) {
             segments.push({
               title: partCounter > 1 ? `${currentTitle} (${partCounter})` : currentTitle,
@@ -128,31 +116,24 @@ export const splitTextIntoCards = async (text: string): Promise<CardSegment[]> =
             currentChunk = "";
             partCounter = 1;
          }
-         currentTitle = part.replace(/#|\*/g, '').trim(); // Update context for next cards
-         // FALLBACK LOGIC: Return here means we SKIP adding this header to the next chunk's body
-         // This mimics the AI "No Redundancy" rule in local logic
+         currentTitle = part.replace(/#|\*/g, '').trim();
          return; 
       }
 
-      // Logic: If adding this part exceeds max, push current and start new
       if ((currentChunk.length + part.length) > MAX_CHARS) {
-        // Push the full card
         segments.push({
           title: partCounter > 1 ? `${currentTitle} (${partCounter})` : currentTitle,
           content: currentChunk,
           layout: "standard"
         });
         
-        // Reset
         currentChunk = part;
         partCounter++;
       } else {
-        // Append
         currentChunk += (currentChunk ? "\n\n" : "") + part;
       }
     });
     
-    // Push remaining
     if (currentChunk) {
         segments.push({
           title: partCounter > 1 ? `${currentTitle} (${partCounter})` : currentTitle,
