@@ -3,7 +3,7 @@ import { ControlPanel } from './components/ControlPanel';
 import { Card, CardHandle } from './components/Card';
 import { CardConfig, AspectRatio, CardSegment, FontStyle } from './types';
 import { splitTextIntoCards } from './services/geminiService';
-import { Download, Plus, Minus, Settings2, Play, ArrowDownToLine, X, Pencil, LayoutTemplate, Check } from 'lucide-react';
+import { Download, Plus, Minus, Settings2, Play, ArrowDownToLine, X, Pencil, LayoutTemplate, Check, Image as ImageIcon } from 'lucide-react';
 import { toPng } from 'html-to-image';
 
 const App: React.FC = () => {
@@ -40,11 +40,15 @@ const App: React.FC = () => {
     } catch { return defaultConfig; }
   });
 
+  // --- Image Upload Refs ---
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const activeCardIndexForUpload = useRef<number | null>(null);
+
   // --- Effects ---
   useEffect(() => { localStorage.setItem('textcuts_input', inputText); }, [inputText]);
   useEffect(() => { localStorage.setItem('textcuts_config', JSON.stringify(config)); }, [config]);
 
-  // Load LXGW Font manually to avoid html-to-image CORS issues with external stylesheets
+  // Load LXGW Font manually
   useEffect(() => {
     const linkId = 'lxgw-font-style';
     if (!document.getElementById(linkId)) {
@@ -66,7 +70,7 @@ const App: React.FC = () => {
   const handleProcess = async () => {
     if (!inputText) return;
     setIsProcessing(true);
-    setIsPanelOpen(false); // Auto close panel on run
+    setIsPanelOpen(false);
     setEditingIndex(null);
     
     try {
@@ -96,12 +100,10 @@ const App: React.FC = () => {
   };
 
   const handleStartEdit = (index: number) => {
-    // Auto-save previous if exists
     if (editingIndex !== null && editingIndex !== index) {
        cardRefs.current[editingIndex]?.save();
     }
     setEditingIndex(index);
-    // Direct call triggers internal state update in Card
     cardRefs.current[index]?.startEdit();
   };
 
@@ -115,16 +117,40 @@ const App: React.FC = () => {
     setEditingIndex(null);
   };
 
+  const triggerImageUpload = (index: number) => {
+    activeCardIndexForUpload.current = index;
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && activeCardIndexForUpload.current !== null) {
+       const reader = new FileReader();
+       reader.onload = (ev) => {
+          const result = ev.target?.result as string;
+          setCards(prev => {
+             const newCards = [...prev];
+             const idx = activeCardIndexForUpload.current!;
+             newCards[idx] = {
+                ...newCards[idx],
+                image: result
+             };
+             return newCards;
+          });
+          activeCardIndexForUpload.current = null;
+       };
+       reader.readAsDataURL(file);
+    }
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
   const handleDownload = useCallback(async (index: number) => {
     const handle = cardRefs.current[index];
     if (!handle || !handle.element) return;
     const el = handle.element;
 
     try {
-      // Small delay to ensure render is stable
       await new Promise(resolve => setTimeout(resolve, 50));
-      
-      // Dynamically capture dimensions
       const width = el.offsetWidth;
       const height = el.offsetHeight;
 
@@ -134,7 +160,6 @@ const App: React.FC = () => {
         width: width,
         height: height,
         style: {
-           // Explicitly set dimensions on the clone to prevent zoom/transform inheritance issues
            width: `${width}px`,
            height: `${height}px`,
            zoom: '1',
@@ -142,7 +167,6 @@ const App: React.FC = () => {
            margin: '0',
            maxHeight: 'none',
         },
-        // Filter out the external font link if it still exists to prevent double loading/errors
         filter: (node) => {
           if (node.tagName === 'LINK' && (node as HTMLLinkElement).href.includes('lxgw-zhi-song-screen-web')) {
             return false;
@@ -169,14 +193,10 @@ const App: React.FC = () => {
 
   const hasContent = cards.length > 0;
 
-  // Determine width based on aspect ratio to maintain content capacity
   const getCardWidth = (ratio: AspectRatio) => {
     switch (ratio) {
-      // 16:9 - Needs significant width to ensure height is sufficient for text (Target Height ~450px)
       case AspectRatio.WIDE: return '800px';
-      // 1:1 - Needs enough height (Target Height ~520px)
       case AspectRatio.SQUARE: return '520px';
-      // 3:4 - Baseline (Width 380px -> Height ~506px)
       case AspectRatio.PORTRAIT: default: return '380px';
     }
   };
@@ -185,7 +205,16 @@ const App: React.FC = () => {
   return (
     <div className="relative h-screen w-full overflow-hidden bg-white font-sans text-[#18181b]">
       
-      {/* Background Texture (Dieter Rams Style: Technical Grid + Vignette) */}
+      {/* Hidden File Input */}
+      <input 
+        type="file" 
+        ref={fileInputRef} 
+        onChange={handleFileChange} 
+        accept="image/png, image/jpeg, image/jpg" 
+        className="hidden" 
+      />
+
+      {/* Background Texture */}
       <div className="absolute inset-0 pointer-events-none opacity-20 mix-blend-multiply" 
            style={{ 
              backgroundImage: `
@@ -204,14 +233,10 @@ const App: React.FC = () => {
             
             {!hasContent ? (
                <div className="flex-1 flex flex-col items-center justify-center select-none">
-                  {/* Dieter Rams Style: Minimalist Typography on Canvas */}
                   <div className="flex flex-col items-center animate-in fade-in zoom-in-95 duration-1000">
-                    
-                    {/* Main Quote - Pure Typography */}
                     <h1 className="text-5xl md:text-7xl font-bold tracking-tighter text-[#18181b] text-center max-w-4xl leading-none">
                       Quantity produces quality<span className="text-[#ea580c]">.</span>
                     </h1>
-
                   </div>
                </div>
             ) : (
@@ -233,6 +258,8 @@ const App: React.FC = () => {
                         content={segment.content}
                         sectionTitle={segment.title} 
                         layout={segment.layout}
+                        image={segment.image}
+                        imageConfig={segment.imageConfig}
                         index={idx} 
                         total={cards.length} 
                         config={config} 
@@ -240,7 +267,7 @@ const App: React.FC = () => {
                         onSplit={(contentToMove) => handleSplitCard(idx, contentToMove)}
                       />
                     </div>
-                    {/* Card Actions (Dieter Rams Style: Functional, grouped, clear) */}
+                    {/* Card Actions */}
                     <div className="mt-6 flex items-center gap-3 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0">
                        
                        {editingIndex === idx ? (
@@ -286,6 +313,13 @@ const App: React.FC = () => {
                               >
                                 <Pencil size={14} />
                               </button>
+                              <button 
+                                onClick={() => triggerImageUpload(idx)}
+                                className="p-2 rounded-full border border-black/10 text-black/60 hover:text-black hover:border-black/30 bg-white hover:bg-white/80 transition-all"
+                                title="Add/Replace Image"
+                              >
+                                <ImageIcon size={14} />
+                              </button>
                            </div>
 
                            <div className="w-px h-4 bg-black/10 mx-1"></div>
@@ -309,11 +343,10 @@ const App: React.FC = () => {
         </div>
       </main>
 
-      {/* --- FLOATING CONTROL DECK (Braun/Rams Style) --- */}
+      {/* --- FLOATING CONTROL DECK --- */}
       <div className="absolute bottom-10 left-0 right-0 flex justify-center z-50">
         <div className="relative">
           
-          {/* The Dashboard Panel (Pops UP from here) */}
           <ControlPanel 
             inputText={inputText}
             setInputText={setInputText}
@@ -322,7 +355,7 @@ const App: React.FC = () => {
             isVisible={isPanelOpen}
           />
 
-          {/* The Main Controller Bar */}
+          {/* Main Controller Bar */}
           <div className="
             flex items-center gap-2 p-2 pl-3
             bg-white border border-black/10 rounded-full 
@@ -331,7 +364,6 @@ const App: React.FC = () => {
             transition-transform duration-300 hover:scale-[1.005]
           ">
              
-             {/* Left: View Controls */}
              <div className="flex items-center gap-1 px-2 border-r border-black/5 mr-1">
                 <button onClick={() => setZoomLevel(z => Math.max(0.4, z - 0.05))} className="p-2 text-black/40 hover:text-black transition-colors rounded-full hover:bg-black/5">
                   <Minus size={14} />
@@ -344,7 +376,6 @@ const App: React.FC = () => {
                 </button>
              </div>
 
-             {/* Center: System Toggle */}
              <button
                onClick={() => setIsPanelOpen(!isPanelOpen)}
                className={`
@@ -359,7 +390,6 @@ const App: React.FC = () => {
                <span className="hidden sm:inline">{isPanelOpen ? 'Close Panel' : 'Settings'}</span>
              </button>
 
-             {/* Right: Primary Action (Run) */}
              <div className="pl-2 flex items-center gap-2">
                 {hasContent && (
                   <button 
