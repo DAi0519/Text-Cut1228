@@ -1,4 +1,5 @@
 
+
 export enum FontStyle {
   SANS = 'Sans',
   SERIF = 'Serif',
@@ -14,7 +15,7 @@ export enum AspectRatio {
 
 export type Colorway = 'snow' | 'carbon' | 'neon';
 
-export type Composition = 'classic' | 'swiss' | 'technical' | 'zen' | 'neo';
+export type Composition = 'classic' | 'swiss' | 'technical' | 'zen' | 'neo' | 'flux';
 
 export interface CardConfig {
   // Visuals

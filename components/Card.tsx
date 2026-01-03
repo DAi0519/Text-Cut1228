@@ -33,6 +33,21 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
   const contentRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // --- NUMBERING LOGIC ---
+  // 1. Title Page (Index 0) and End Page (Index Total-1) do not show numbers.
+  const isFirst = index === 0;
+  const isLast = index === total - 1;
+  const showNumber = !isFirst && !isLast;
+
+  // 2. Body cards start at Index 1. 
+  // Since we want the first body page to be "01", we can just use the current `index`.
+  // Index 1 -> "01", Index 2 -> "02", etc.
+  const displayIndex = String(index).padStart(2, '0');
+
+  // 3. Display Total calculation (Body cards only)
+  // Total cards - 2 (Title + End). Ensure at least 0.
+  const displayTotal = String(Math.max(0, total - 2)).padStart(2, '0');
+
   const handleSave = () => {
     if (onUpdate) onUpdate({ title: editTitle, content: editContent, layout: currentLayout });
     setIsEditing(false);
@@ -246,9 +261,11 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
            <span className="text-xs font-bold uppercase tracking-widest truncate max-w-[120px] opacity-80">{config.title || "Untitled"}</span>
         </div>
         <div className="flex items-center gap-4">
-           <div className={`text-[10px] font-mono tracking-widest ${secondaryTextColor}`}>
-             {String(index + 1).padStart(2, '0')}<span className="opacity-30 mx-1">/</span>{String(total).padStart(2, '0')}
-           </div>
+           {showNumber && (
+             <div className={`text-[10px] font-mono tracking-widest ${secondaryTextColor}`}>
+               {displayIndex}<span className="opacity-30 mx-1">/</span>{displayTotal}
+             </div>
+           )}
            <div className="w-2.5 h-2.5 rounded-full shadow-sm relative" style={{ backgroundColor: config.accentColor }}>
              <div className="absolute inset-0 rounded-full animate-pulse opacity-50 bg-white mix-blend-overlay"></div>
            </div>
@@ -284,10 +301,12 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
             <>
               <div className="shrink-0 animate-in fade-in slide-in-from-top-2 duration-300">
                 <div className="mb-6"> {/* CHANGED: mb-8 -> mb-6 */}
-                  <div className="flex items-center gap-3 mb-2 opacity-60"> {/* CHANGED: mb-3 -> mb-2 */}
-                    <div className="w-2 h-2 border border-current opacity-50"></div>
-                    <span className="font-mono text-[9px] uppercase tracking-[0.2em]">Segment {index + 1}</span>
-                  </div>
+                  {showNumber && (
+                    <div className="flex items-center gap-3 mb-2 opacity-60"> {/* CHANGED: mb-3 -> mb-2 */}
+                      <div className="w-2 h-2 border border-current opacity-50"></div>
+                      <span className="font-mono text-[9px] uppercase tracking-[0.2em]">Segment {displayIndex}</span>
+                    </div>
+                  )}
                   {isEditing ? (
                     <input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} placeholder="(No Title)"
                       className={`w-full bg-transparent text-[1.75rem] font-bold leading-tight outline-none border-b border-dashed border-current/30 py-1 ${inputBgColor} placeholder:text-current/20 ${getFontClass(config.fontStyle)}`} style={{ color: config.textColor }} />
@@ -322,9 +341,11 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
        {isCover ? (
          <div className="flex-1 flex flex-col p-8 relative overflow-hidden">
              {/* Massive Background Decor */}
-             <div className="absolute -right-10 -top-20 text-[20rem] font-bold opacity-[0.03] select-none pointer-events-none font-sans leading-none tracking-tighter">
-               {String(index + 1).padStart(2,'0')}
-             </div>
+             {showNumber && (
+               <div className="absolute -right-10 -top-20 text-[20rem] font-bold opacity-[0.03] select-none pointer-events-none font-sans leading-none tracking-tighter">
+                 {displayIndex}
+               </div>
+             )}
              
              <div className="mt-auto mb-12 relative z-10">
                <div className="w-24 h-4 mb-8" style={{ backgroundColor: config.accentColor }}></div>
@@ -344,9 +365,11 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
             {/* CHANGED: min-h reduced from 35% to 30%, padding reduced from pb-6 to pb-4 */}
             <div className={`p-8 pb-4 flex flex-col justify-end min-h-[30%] border-b-4 ${borderColor}`}>
                <div className="flex justify-between items-end">
-                  <div className={`text-[8rem] leading-[0.7] font-bold tracking-tighter -ml-1 ${getFontClass(FontStyle.SANS)}`} style={{ color: config.textColor, opacity: 1 }}>
-                     {String(index + 1).padStart(2,'0')}
-                  </div>
+                  {showNumber && (
+                    <div className={`text-[8rem] leading-[0.7] font-bold tracking-tighter -ml-1 ${getFontClass(FontStyle.SANS)}`} style={{ color: config.textColor, opacity: 1 }}>
+                       {displayIndex}
+                    </div>
+                  )}
                   {config.title && (
                     <div className="mb-2 text-[10px] font-bold uppercase tracking-widest opacity-40 max-w-[100px] text-right leading-tight">
                        {config.title}
@@ -392,7 +415,7 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
             <div className="flex gap-4 items-baseline">
                <span>{config.authorName || "SYS_OP"}</span>
                <span className="opacity-30">/</span>
-               <span>SERIES {String(index + 1).padStart(2, '0')}</span>
+               {showNumber && <span>SERIES {displayIndex}</span>}
             </div>
             {/* Functional Badge */}
             <div className={`font-mono text-[9px] px-1 py-0.5 text-white font-bold uppercase`} style={{ backgroundColor: config.accentColor }}>
@@ -402,16 +425,18 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
 
          {/* SHARED BIG NUMBER - ABSOLUTE POSITIONED */}
          {/* User wants it "tight to bottom edge" and fully displayed. */}
-         <div 
-            className={`absolute bottom-2 right-5 font-bold tracking-tighter leading-[0.8] select-none pointer-events-none z-0 transition-opacity duration-300`}
-            style={{ 
-               fontSize: '8rem', 
-               color: isCover ? config.accentColor : 'currentColor',
-               opacity: isCover ? 1 : 0.1 // Low opacity for body (watermark style)
-            }}
-         >
-            {String(index + 1).padStart(2, '0')}
-         </div>
+         {showNumber && (
+           <div 
+              className={`absolute bottom-2 right-5 font-bold tracking-tighter leading-[0.8] select-none pointer-events-none z-0 transition-opacity duration-300`}
+              style={{ 
+                 fontSize: '8rem', 
+                 color: isCover ? config.accentColor : 'currentColor',
+                 opacity: isCover ? 1 : 0.1 // Low opacity for body (watermark style)
+              }}
+           >
+              {displayIndex}
+           </div>
+         )}
 
          {isCover ? (
            <div className="flex-1 flex flex-col relative p-6 z-10">
@@ -498,9 +523,11 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
 
          {isCover ? (
             <div className="flex-1 flex flex-col justify-center items-center text-center relative z-0">
-               <div className="mt-8 mb-8 opacity-60 font-ming-light">
-                  <span className="text-xs uppercase tracking-[0.3em]">No. {String(index + 1).padStart(2,'0')}</span>
-               </div>
+               {showNumber && (
+                 <div className="mt-8 mb-8 opacity-60 font-ming-light">
+                    <span className="text-xs uppercase tracking-[0.3em]">No. {displayIndex}</span>
+                 </div>
+               )}
                
                {isEditing ? (
                   <textarea value={editTitle} onChange={(e) => setEditTitle(e.target.value)} placeholder="Title"
@@ -536,9 +563,11 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
                </div>
                
                {/* Minimal Pagination */}
-               <div className="absolute bottom-0 right-0 opacity-20 text-[10px] font-mono">
-                 {index + 1}
-               </div>
+               {showNumber && (
+                 <div className="absolute bottom-0 right-0 opacity-20 text-[10px] font-mono">
+                   {displayIndex}
+                 </div>
+               )}
             </div>
          )}
       </div>
@@ -595,14 +624,18 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
              {/* Header: Minimal Capsule Style (Apple UI Element) */}
              <div className="h-16 shrink-0 flex items-center justify-between px-6 pt-2">
                 {/* Index Capsule */}
-                <div className={`
-                    h-6 px-3 rounded-full flex items-center justify-center gap-1.5 
-                    ${isDark ? 'bg-white/10 text-white' : 'bg-black/5 text-black'} 
-                    backdrop-blur-md border ${isDark ? 'border-white/5' : 'border-black/5'}
-                `}>
-                    <span className="text-[10px] font-bold font-mono opacity-60">NO.</span>
-                    <span className="text-[10px] font-bold font-mono tracking-wider">{String(index + 1).padStart(2,'0')}</span>
-                </div>
+                {showNumber ? (
+                  <div className={`
+                      h-6 px-3 rounded-full flex items-center justify-center gap-1.5 
+                      ${isDark ? 'bg-white/10 text-white' : 'bg-black/5 text-black'} 
+                      backdrop-blur-md border ${isDark ? 'border-white/5' : 'border-black/5'}
+                  `}>
+                      <span className="text-[10px] font-bold font-mono opacity-60">NO.</span>
+                      <span className="text-[10px] font-bold font-mono tracking-wider">{displayIndex}</span>
+                  </div>
+                ) : (
+                  <div></div> /* Spacer */
+                )}
                 
                 {/* Decorative Dot */}
                 <div className="w-1.5 h-1.5 rounded-full shadow-[0_0_10px_currentColor]" style={{backgroundColor: config.textColor, opacity: 0.8}}></div>
@@ -679,6 +712,118 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
     );
   }
 
+  // 10. FLUX: The FUSION style (Swiss Structure + Neo Glass/Gradient)
+  const renderFlux = () => {
+    // 1. Foundation: The Neo-like Mesh Background (But lighter/subtler as requested)
+    const isDark = config.colorway === 'carbon' || config.colorway === 'neon';
+    // Reduced opacities for a "lighter" liquid effect
+    const gradientOpacity = isDark ? 0.25 : 0.4; 
+    const glassBg = isDark ? 'bg-black/20 backdrop-blur-2xl' : 'bg-white/50 backdrop-blur-3xl';
+    const glassBorder = isDark ? 'border-white/10' : 'border-white/50';
+    const textColor = config.textColor;
+
+    return (
+       <div className="flex flex-col h-full w-full relative overflow-hidden select-none">
+          
+          {/* --- LAYER 0: FLUX BACKGROUND (Soft Liquid) --- */}
+          <div className="absolute inset-0 z-0">
+             <div className="absolute inset-0" style={{backgroundColor: config.backgroundColor}}></div>
+             
+             {/* Fluid Gradient 1 */}
+             <div 
+               className="absolute -top-[10%] -right-[10%] w-[80%] h-[80%] rounded-full blur-[120px] mix-blend-multiply dark:mix-blend-screen pointer-events-none"
+               style={{ backgroundColor: config.accentColor, opacity: gradientOpacity }}
+             ></div>
+             
+             {/* Fluid Gradient 2 */}
+             <div 
+               className="absolute bottom-0 left-0 w-[100%] h-[60%] rounded-full blur-[100px] mix-blend-multiply dark:mix-blend-screen pointer-events-none"
+               style={{ backgroundColor: config.accentColor, opacity: gradientOpacity * 0.6 }}
+             ></div>
+          </div>
+
+          {/* --- LAYER 1: GLASS CARD (Neo Container) --- */}
+          <div className={`relative z-10 flex-1 m-4 rounded-[24px] ${glassBg} border ${glassBorder} flex flex-col overflow-hidden shadow-sm`}>
+             
+             {/* --- LAYER 2: SWISS TYPOGRAPHY STRUCTURE --- */}
+             {isCover ? (
+                <div className="flex-1 flex flex-col p-8 relative">
+                   {/* Massive Index Watermark (Swiss Trait) */}
+                   {showNumber && (
+                     <div className="absolute top-0 right-4 text-[12rem] font-bold leading-none tracking-tighter opacity-[0.05] pointer-events-none select-none">
+                       {displayIndex}
+                     </div>
+                   )}
+
+                   <div className="mt-auto mb-8 relative z-20">
+                     <div className="w-16 h-2 mb-6 rounded-full" style={{ backgroundColor: config.accentColor }}></div>
+                     {isEditing ? (
+                        <textarea value={editTitle} onChange={(e) => setEditTitle(e.target.value)} placeholder="TITLE"
+                          className={`w-full bg-transparent text-6xl font-bold leading-[0.9] outline-none ${inputBgColor} ${getFontClass(config.fontStyle)} tracking-tighter uppercase rounded-lg p-2`} rows={3} style={{ color: config.textColor, resize: 'none' }} />
+                     ) : (
+                       <h1 className={`text-6xl font-bold leading-[0.9] tracking-tighter uppercase break-words whitespace-pre-wrap drop-shadow-sm ${getFontClass(config.fontStyle)}`} style={{ color: config.textColor }}>
+                         {editTitle || "UNTITLED"}
+                       </h1>
+                     )}
+                     
+                     {/* Clean Author Line */}
+                     {config.authorName && (
+                        <div className="mt-6 flex items-center gap-3">
+                           <span className="text-[10px] font-bold uppercase tracking-[0.2em] opacity-60">By {config.authorName}</span>
+                        </div>
+                     )}
+                   </div>
+                </div>
+             ) : (
+                <div className="flex-1 flex flex-col relative">
+                   {/* SWISS HEADER: Big Index + Bold Title */}
+                   <div className="p-8 pb-4 border-b border-current/10 flex flex-col gap-1">
+                      <div className="flex justify-between items-baseline">
+                         {/* Huge Index Number */}
+                         {showNumber ? (
+                           <span className="text-6xl font-bold tracking-tighter leading-none opacity-90" style={{color: textColor}}>
+                              {displayIndex}
+                           </span>
+                         ) : <div></div>}
+                         {/* Small Project Ref */}
+                         <span className="text-[9px] font-bold uppercase tracking-widest opacity-40">
+                            {config.title || "FLUX"}
+                         </span>
+                      </div>
+                      
+                      {/* Bold Section Title */}
+                      <div className="mt-4">
+                        {isEditing ? (
+                           <input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} 
+                            className={`bg-transparent text-2xl font-bold uppercase tracking-tight w-full outline-none ${inputBgColor} rounded px-1`} style={{ color: textColor }} placeholder="SECTION" />
+                        ) : ( editTitle && (
+                           <h2 className="text-2xl font-bold uppercase tracking-tight leading-none opacity-95" style={{color: textColor}}>{editTitle}</h2>
+                        ))}
+                      </div>
+                   </div>
+
+                   {/* Content Body */}
+                   <div className="flex-1 p-8 pt-6 relative min-h-0 flex flex-col">
+                      <div className="flex-1 min-h-0 relative" style={{ fontSize: `${config.fontSize}rem`, color: textColor }}>
+                         {isEditing ? (
+                            <textarea value={editContent} onChange={(e) => setEditContent(e.target.value)} className={`w-full h-full bg-transparent resize-none outline-none p-2 rounded ${inputBgColor}`} style={{ color: textColor }} />
+                         ) : renderMarkdownContent()}
+                         {renderOverflowBtn()}
+                      </div>
+                   </div>
+
+                   {/* Swiss/Neo Hybrid Footer: Accent Bar */}
+                   <div className="h-1.5 w-full mt-auto relative bg-current/5">
+                      <div className="absolute top-0 bottom-0 left-0 bg-current transition-all duration-500" 
+                           style={{ width: `${((index + 1) / total) * 100}%`, color: config.accentColor }}></div>
+                   </div>
+                </div>
+             )}
+          </div>
+       </div>
+    );
+  }
+
   // --- MAIN RENDER ---
   
   // Custom container styles based on composition
@@ -704,8 +849,8 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
       }
     }
 
-    if (config.composition === 'neo') {
-      // Apple Style: Deep, diffused shadow + Smooth corners
+    // Neo and Flux share similar container physics (Apple/Modern style)
+    if (config.composition === 'neo' || config.composition === 'flux') {
       return {
         ...baseStyle,
         borderRadius: '32px', // More curvature like modern iOS UI
@@ -742,6 +887,7 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
        {config.composition === 'technical' && renderTechnical()}
        {config.composition === 'zen' && renderZen()}
        {config.composition === 'neo' && renderNeo()}
+       {config.composition === 'flux' && renderFlux()}
        
     </div>
   );

@@ -51,9 +51,10 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   const compositions: { value: Composition, label: string }[] = [
     { value: 'classic', label: 'Classic' },
     { value: 'swiss', label: 'Swiss' },
-    { value: 'technical', label: 'Technical' },
+    { value: 'technical', label: 'Tech' },
     { value: 'zen', label: 'Zen' },
     { value: 'neo', label: 'Neo' },
+    { value: 'flux', label: 'Flux' },
   ];
 
   return (
