@@ -334,74 +334,6 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
   );
 
 
-  // 2. SWISS: Bold, Asymmetric, Huge Typography, High Tension
-  const renderSwiss = () => (
-    <div className="flex flex-col h-full w-full relative">
-       
-       {isCover ? (
-         <div className="flex-1 flex flex-col p-8 relative overflow-hidden">
-             {/* Massive Background Decor */}
-             {showNumber && (
-               <div className="absolute -right-10 -top-20 text-[20rem] font-bold opacity-[0.03] select-none pointer-events-none font-sans leading-none tracking-tighter">
-                 {displayIndex}
-               </div>
-             )}
-             
-             <div className="mt-auto mb-12 relative z-10">
-               <div className="w-24 h-4 mb-8" style={{ backgroundColor: config.accentColor }}></div>
-               {isEditing ? (
-                  <textarea value={editTitle} onChange={(e) => setEditTitle(e.target.value)} placeholder="TITLE"
-                    className={`w-full bg-transparent text-6xl md:text-7xl font-bold leading-none outline-none border-b-4 border-current py-4 ${inputBgColor} ${getFontClass(config.fontStyle)} tracking-tighter uppercase`} rows={3} style={{ color: config.textColor, resize: 'none' }} />
-               ) : (
-                 <h2 className={`text-6xl md:text-7xl font-bold leading-[0.9] tracking-tighter uppercase break-words whitespace-pre-wrap ${getFontClass(config.fontStyle)}`} style={{ color: config.textColor }}>
-                   {editTitle || "UNTITLED"}
-                 </h2>
-               )}
-             </div>
-         </div>
-       ) : (
-         <div className="flex-1 flex flex-col relative">
-            {/* Top Section: Massive Index + Title */}
-            {/* CHANGED: min-h reduced from 35% to 30%, padding reduced from pb-6 to pb-4 */}
-            <div className={`p-8 pb-4 flex flex-col justify-end min-h-[30%] border-b-4 ${borderColor}`}>
-               <div className="flex justify-between items-end">
-                  {showNumber && (
-                    <div className={`text-[8rem] leading-[0.7] font-bold tracking-tighter -ml-1 ${getFontClass(FontStyle.SANS)}`} style={{ color: config.textColor, opacity: 1 }}>
-                       {displayIndex}
-                    </div>
-                  )}
-                  {config.title && (
-                    <div className="mb-2 text-[10px] font-bold uppercase tracking-widest opacity-40 max-w-[100px] text-right leading-tight">
-                       {config.title}
-                    </div>
-                  )}
-               </div>
-               
-               {/* Subtitle / Section Title inside the bold header area */}
-               <div className="mt-6">
-                 {isEditing ? (
-                    <input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} placeholder="(Section Title)"
-                      className={`w-full bg-transparent text-xl font-bold uppercase tracking-wide outline-none border-b border-current/30 ${inputBgColor} ${getFontClass(config.fontStyle)}`} style={{ color: config.textColor }} />
-                  ) : ( editTitle && (
-                    <h2 className={`text-xl font-bold uppercase tracking-wide leading-tight opacity-90 whitespace-pre-wrap ${getFontClass(config.fontStyle)}`} style={{ color: config.textColor }}>
-                      {editTitle}
-                    </h2>
-                  ))}
-               </div>
-            </div>
-
-            {/* Bottom Section: Content in a strict grid */}
-            <div className="flex-1 p-8 pt-6 relative min-h-0 flex flex-col">
-               <div className="flex-1 min-h-0 relative" style={{ fontSize: `${config.fontSize}rem`, color: config.textColor }}>
-                {isEditing ? <textarea value={editContent} onChange={(e) => setEditContent(e.target.value)} className={`w-full h-full bg-transparent resize-none outline-none p-2 rounded leading-relaxed text-sm opacity-90 ${inputBgColor}`} style={{ color: config.textColor }} /> : renderMarkdownContent()}
-                {renderOverflowBtn()}
-              </div>
-            </div>
-         </div>
-       )}
-    </div>
-  );
-
   // 4. TECHNICAL: Inspired by "Polymer 48" / "Detroit Fault Line" / "AR/17"
   const renderTechnical = () => {
     // Force Sans or Mono usually looks best, but let's respect config if possible, or lean towards Sans/Mono mix.
@@ -574,144 +506,6 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
     );
   };
 
-  // 9. NEO: Modern Digital, Glassmorphism, Clean, Soft Glows -> Apple Design x Dieter Rams Refined
-  const renderNeo = () => {
-    // We want the accent color to be more dominant in a "Classy" way.
-    // Use Mesh Gradients instead of simple blurs.
-    
-    // Calculate light/dark specifics for the "Glass" effect
-    const isDark = config.colorway === 'carbon' || config.colorway === 'neon';
-    
-    // Apple-esque semi-transparent materials
-    const glassBg = isDark ? 'bg-black/10 backdrop-blur-xl' : 'bg-white/40 backdrop-blur-2xl';
-    const glassBorder = isDark ? 'border-white/10' : 'border-white/40';
-    const textColor = config.textColor;
-    
-    // Mesh Gradient Logic: Use the Accent Color to wash the background
-    // If it's Snow (Light), we use a softer wash. If Carbon/Neon (Dark), we use a deeper glow.
-    const gradientOpacity = isDark ? 0.35 : 0.6; 
-
-    return (
-       <div className="flex flex-col h-full w-full relative overflow-hidden select-none">
-          
-          {/* --- LAYER 0: THE MESH BACKGROUND (The "Theme" carrier) --- */}
-          <div className="absolute inset-0 z-0">
-             <div className="absolute inset-0" style={{backgroundColor: config.backgroundColor}}></div>
-             
-             {/* Large Gradient Orb 1 (Top Right) */}
-             <div 
-               className="absolute -top-[30%] -right-[20%] w-[100%] h-[100%] rounded-full blur-[90px] mix-blend-multiply dark:mix-blend-screen pointer-events-none transition-colors duration-500"
-               style={{ 
-                  backgroundColor: config.accentColor, 
-                  opacity: gradientOpacity
-               }}
-             ></div>
-             
-             {/* Large Gradient Orb 2 (Bottom Left) */}
-             <div 
-               className="absolute -bottom-[20%] -left-[20%] w-[80%] h-[80%] rounded-full blur-[100px] mix-blend-multiply dark:mix-blend-screen pointer-events-none transition-colors duration-500"
-               style={{ 
-                  backgroundColor: config.accentColor, 
-                  opacity: gradientOpacity * 0.8
-               }}
-             ></div>
-          </div>
-
-          {/* --- LAYER 1: THE GLASS SURFACE --- */}
-          {/* A floating surface that holds the content. "Less but better" - clean lines. */}
-          <div className={`relative z-10 flex-1 m-4 rounded-[20px] ${glassBg} border ${glassBorder} flex flex-col overflow-hidden shadow-sm`}>
-             
-             {/* Header: Minimal Capsule Style (Apple UI Element) */}
-             <div className="h-16 shrink-0 flex items-center justify-between px-6 pt-2">
-                {/* Index Capsule */}
-                {showNumber ? (
-                  <div className={`
-                      h-6 px-3 rounded-full flex items-center justify-center gap-1.5 
-                      ${isDark ? 'bg-white/10 text-white' : 'bg-black/5 text-black'} 
-                      backdrop-blur-md border ${isDark ? 'border-white/5' : 'border-black/5'}
-                  `}>
-                      <span className="text-[10px] font-bold font-mono opacity-60">NO.</span>
-                      <span className="text-[10px] font-bold font-mono tracking-wider">{displayIndex}</span>
-                  </div>
-                ) : (
-                  <div></div> /* Spacer */
-                )}
-                
-                {/* Decorative Dot */}
-                <div className="w-1.5 h-1.5 rounded-full shadow-[0_0_10px_currentColor]" style={{backgroundColor: config.textColor, opacity: 0.8}}></div>
-             </div>
-
-             {/* Content Body */}
-             <div className="flex-1 px-8 pb-8 flex flex-col relative min-h-0">
-                
-                {isCover ? (
-                   <div className="flex-1 flex flex-col justify-center animate-in fade-in slide-in-from-bottom-4 duration-700">
-                      {/* Sub-label */}
-                      <div className="mb-4 flex items-center gap-2 opacity-60">
-                         <span className="text-[10px] uppercase tracking-[0.2em] font-medium">Collection</span>
-                         <div className="h-[1px] w-8 bg-current opacity-50"></div>
-                      </div>
-
-                      {/* Main Title - Apple Style: Tight Tracking, Large Scale */}
-                      {isEditing ? (
-                         <textarea value={editTitle} onChange={(e) => setEditTitle(e.target.value)} placeholder="Object"
-                           className={`w-full bg-transparent text-5xl font-semibold tracking-tight leading-[1.1] outline-none ${inputBgColor} rounded-lg p-2`} rows={3} style={{ color: textColor, resize: 'none' }} />
-                      ) : (
-                        <h1 className="text-5xl font-semibold tracking-tight leading-[1.1] whitespace-pre-wrap drop-shadow-sm" style={{color: textColor}}>
-                          {editTitle || "Untitled"}
-                        </h1>
-                      )}
-                      
-                      {/* Author pill */}
-                      {config.authorName && (
-                        <div className="mt-8 flex items-center gap-2">
-                           <div className="w-6 h-[1px] bg-current opacity-40"></div>
-                           <span className="text-xs font-medium tracking-wide opacity-80 uppercase">{config.authorName}</span>
-                        </div>
-                      )}
-                   </div>
-                ) : (
-                   <div className="flex-1 flex flex-col min-h-0 animate-in fade-in duration-500">
-                      
-                      {/* Title Section */}
-                      {/* CHANGED: mb-4 -> mb-6 for slightly cleaner look but reduced border spacing */}
-                      <div className="shrink-0 mb-4 pb-2 border-b border-current/10"> 
-                         {isEditing ? (
-                            <input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} 
-                             className={`bg-transparent text-xl font-semibold tracking-tight w-full outline-none ${inputBgColor} rounded px-1`} style={{ color: textColor }} placeholder="Header" />
-                         ) : ( editTitle && (
-                            <h2 className="text-xl font-semibold tracking-tight leading-tight" style={{color: textColor}}>{editTitle}</h2>
-                         ))}
-                      </div>
-
-                      {/* Text Content */}
-                      <div className="flex-1 min-h-0 relative font-sans antialiased" style={{ fontSize: `${config.fontSize}rem`, color: textColor }}>
-                         {isEditing ? (
-                            <textarea value={editContent} onChange={(e) => setEditContent(e.target.value)} className={`w-full h-full bg-transparent resize-none outline-none p-3 rounded-xl ${inputBgColor}`} style={{ color: textColor }} />
-                         ) : renderMarkdownContent()}
-                         {renderOverflowBtn()}
-                      </div>
-                   </div>
-                )}
-             </div>
-
-             {/* Footer: Progress Bar (Functional Decoration) */}
-             <div className="h-1 w-full bg-current/5 relative">
-                <div 
-                  className="absolute left-0 top-0 bottom-0 transition-all duration-300 ease-out" 
-                  style={{ 
-                    width: `${((index + 1) / total) * 100}%`, 
-                    backgroundColor: config.accentColor,
-                    boxShadow: `0 0 10px ${config.accentColor}`
-                  }}
-                ></div>
-             </div>
-             
-          </div>
-       </div>
-    );
-  }
-
   // 10. FLUX: The FUSION style (Swiss Structure + Neo Glass/Gradient)
   const renderFlux = () => {
     // 1. Foundation: The Neo-like Mesh Background (But lighter/subtler as requested)
@@ -849,8 +643,8 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
       }
     }
 
-    // Neo and Flux share similar container physics (Apple/Modern style)
-    if (config.composition === 'neo' || config.composition === 'flux') {
+    // Flux share similar container physics (Apple/Modern style)
+    if (config.composition === 'flux') {
       return {
         ...baseStyle,
         borderRadius: '32px', // More curvature like modern iOS UI
@@ -882,11 +676,9 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
        {/* Add a utility class for vertical writing mode which Tailwind doesn't have by default but modern browsers support */}
        <style>{`.writing-vertical-rl { writing-mode: vertical-rl; }`}</style>
 
-       {config.composition === 'swiss' && renderSwiss()}
        {config.composition === 'classic' && renderClassic()}
        {config.composition === 'technical' && renderTechnical()}
        {config.composition === 'zen' && renderZen()}
-       {config.composition === 'neo' && renderNeo()}
        {config.composition === 'flux' && renderFlux()}
        
     </div>

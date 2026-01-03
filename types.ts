@@ -15,7 +15,7 @@ export enum AspectRatio {
 
 export type Colorway = 'snow' | 'carbon' | 'neon';
 
-export type Composition = 'classic' | 'swiss' | 'technical' | 'zen' | 'neo' | 'flux';
+export type Composition = 'classic' | 'technical' | 'zen' | 'flux';
 
 export interface CardConfig {
   // Visuals
