@@ -203,14 +203,20 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
           const deltaX = moveEvent.clientX - startX;
           const deltaY = moveEvent.clientY - startY;
           
-          // Convert delta to percentage change (inverted scale compensation)
+          // Natural Scrolling: Drag right -> Move image right -> Increase PanX
+          // Scale Compensation: We want 1:1 pixel movement.
+          // Translate is relative to element width. 
+          // visual_move = translate_percent * width * scale.
+          // We want visual_move = deltaX.
+          // So translate_percent = (deltaX / width) / scale.
           const changeX = (deltaX / width) * 100 * (1/editImageConfig.scale);
           const changeY = (deltaY / height) * 100 * (1/editImageConfig.scale);
 
           setEditImageConfig(prev => ({
              ...prev,
-             panX: Math.max(0, Math.min(100, startPanX - changeX)),
-             panY: Math.max(0, Math.min(100, startPanY - changeY))
+             // Increased range (-100 to 200) allows reaching edges even at high zoom levels
+             panX: Math.max(-100, Math.min(200, startPanX + changeX)),
+             panY: Math.max(-100, Math.min(200, startPanY + changeY))
           }));
       };
 
@@ -274,17 +280,18 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
 
     return (
       <div 
-        className={`relative group/image overflow-hidden shrink-0 transition-[height,width] duration-200 ease-out ${className} ${isEditing ? 'cursor-move ring-2 ring-blue-500/20' : ''}`}
+        className={`relative group/image overflow-hidden shrink-0 transition-[height,width] duration-200 ease-out flex items-center justify-center ${className} ${isEditing ? 'cursor-move ring-2 ring-blue-500/20' : ''}`}
         style={containerStyle}
         onMouseDown={handleMouseDown}
       >
         <img 
           src={editImage} 
           alt="Card attachment"
-          className="w-full h-full object-cover pointer-events-none select-none block"
+          // Switched to object-contain to allow non-destructive zoom/crop
+          className="w-full h-full object-contain pointer-events-none select-none block"
           style={{
-             objectPosition: `${editImageConfig.panX}% ${editImageConfig.panY}%`,
-             transform: `scale(${editImageConfig.scale})`
+             // Use translate for panning to allow moving the image beyond container bounds
+             transform: `translate(${editImageConfig.panX - 50}%, ${editImageConfig.panY - 50}%) scale(${editImageConfig.scale})`
           }}
         />
         
