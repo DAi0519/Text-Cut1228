@@ -14,6 +14,7 @@ interface CardProps {
   config: CardConfig;
   onUpdate?: (data: CardSegment) => void;
   onSplit?: (contentToMove: string) => void;
+  onEditChange?: (hasImage: boolean, config: ImageConfig) => void;
 }
 
 export interface CardHandle {
@@ -22,6 +23,8 @@ export interface CardHandle {
   startEdit: () => void;
   save: () => void;
   cancel: () => void;
+  updateImageConfig: (updates: Partial<ImageConfig>) => void;
+  removeImage: () => void;
 }
 
 const DEFAULT_IMG_CONFIG: ImageConfig = {
@@ -32,7 +35,7 @@ const DEFAULT_IMG_CONFIG: ImageConfig = {
   panY: 50
 };
 
-export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, layout = 'standard', image, imageConfig, index, total, config, onUpdate, onSplit }, ref) => {
+export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, layout = 'standard', image, imageConfig, index, total, config, onUpdate, onSplit, onEditChange }, ref) => {
   
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(sectionTitle);
@@ -75,6 +78,7 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
   const toggleLayout = () => {
     const newLayout = currentLayout === 'standard' ? 'cover' : 'standard';
     setCurrentLayout(newLayout);
+    // If not editing, save immediately. If editing, just update local state.
     if (!isEditing && onUpdate) {
       onUpdate({ 
         title: editTitle, 
@@ -86,27 +90,34 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
     }
   };
 
-  const removeImage = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setEditImage(undefined);
-  };
-
   useImperativeHandle(ref, () => ({
     element: containerRef.current,
     toggleLayout: toggleLayout,
     startEdit: () => setIsEditing(true),
     save: handleSave,
-    cancel: handleCancel
+    cancel: handleCancel,
+    updateImageConfig: (updates) => setEditImageConfig(prev => ({ ...prev, ...updates })),
+    removeImage: () => setEditImage(undefined)
   }));
 
+  // Sync props to state when not editing
   useEffect(() => {
-    setEditTitle(sectionTitle);
-    const sanitizedContent = content ? content.replace(/\\n/g, '\n') : "";
-    setEditContent(sanitizedContent);
-    setEditImage(image);
-    setEditImageConfig(imageConfig || DEFAULT_IMG_CONFIG);
-    setCurrentLayout(layout);
-  }, [sectionTitle, content, layout, image, imageConfig]);
+    if (!isEditing) {
+      setEditTitle(sectionTitle);
+      const sanitizedContent = content ? content.replace(/\\n/g, '\n') : "";
+      setEditContent(sanitizedContent);
+      setEditImage(image);
+      setEditImageConfig(imageConfig || DEFAULT_IMG_CONFIG);
+      setCurrentLayout(layout);
+    }
+  }, [sectionTitle, content, layout, image, imageConfig, isEditing]);
+
+  // Report changes to parent during edit
+  useEffect(() => {
+    if (isEditing && onEditChange) {
+      onEditChange(!!editImage, editImageConfig);
+    }
+  }, [editImage, editImageConfig, isEditing, onEditChange]);
 
   useLayoutEffect(() => {
     if (contentRef.current && !isEditing) {
@@ -203,18 +214,11 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
           const deltaX = moveEvent.clientX - startX;
           const deltaY = moveEvent.clientY - startY;
           
-          // Natural Scrolling: Drag right -> Move image right -> Increase PanX
-          // Scale Compensation: We want 1:1 pixel movement.
-          // Translate is relative to element width. 
-          // visual_move = translate_percent * width * scale.
-          // We want visual_move = deltaX.
-          // So translate_percent = (deltaX / width) / scale.
           const changeX = (deltaX / width) * 100 * (1/editImageConfig.scale);
           const changeY = (deltaY / height) * 100 * (1/editImageConfig.scale);
 
           setEditImageConfig(prev => ({
              ...prev,
-             // Increased range (-100 to 200) allows reaching edges even at high zoom levels
              panX: Math.max(-100, Math.min(200, startPanX + changeX)),
              panY: Math.max(-100, Math.min(200, startPanY + changeY))
           }));
@@ -229,9 +233,6 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
       window.addEventListener('mouseup', onUp);
     };
 
-    // Calculate dynamic size
-    // If vertical: controls Height %
-    // If horizontal: controls Width %
     let currentSizeRatio = editImageConfig.heightRatio;
 
     // Apply aspect ratio preset logic ONLY for vertical layouts
@@ -246,37 +247,7 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
         width: isHorizontal ? `${currentSizeRatio * 100}%` : '100%'
     };
 
-    const cyclePosition = () => {
-       const order: ImageConfig['position'][] = ['top', 'bottom', 'left', 'right'];
-       const currentIdx = order.indexOf(editImageConfig.position);
-       setEditImageConfig(p => ({ ...p, position: order[(currentIdx + 1) % order.length] }));
-    };
-
-    const getPositionIcon = () => {
-       switch(editImageConfig.position) {
-          case 'top': return <ArrowUp size={14} />;
-          case 'bottom': return <ArrowDown size={14} />;
-          case 'left': return <ArrowLeft size={14} />;
-          case 'right': return <ArrowRight size={14} />;
-          default: return <ArrowUp size={14} />;
-       }
-    };
-
-    const cycleAspectRatio = () => {
-       const order: (ImageConfig['aspectRatio'] | undefined)[] = [undefined, '1:1', '4:3', '16:9', '3:4'];
-       const currentIdx = order.indexOf(editImageConfig.aspectRatio);
-       setEditImageConfig(prev => ({ ...prev, aspectRatio: order[(currentIdx + 1) % order.length] }));
-    };
-    
-    const getRatioIcon = () => {
-       switch(editImageConfig.aspectRatio) {
-          case '1:1': return <Square size={14} />;
-          case '4:3': 
-          case '16:9': return <RectangleHorizontal size={14} />;
-          case '3:4': return <RectangleVertical size={14} />;
-          default: return <ScanLine size={14} />;
-       }
-    };
+    // Removed Internal Controls Toolbar (moved to App.tsx)
 
     return (
       <div 
@@ -287,81 +258,15 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
         <img 
           src={editImage} 
           alt="Card attachment"
-          // Switched to object-contain to allow non-destructive zoom/crop
           className="w-full h-full object-contain pointer-events-none select-none block"
           style={{
-             // Use translate for panning to allow moving the image beyond container bounds
              transform: `translate(${editImageConfig.panX - 50}%, ${editImageConfig.panY - 50}%) scale(${editImageConfig.scale})`
           }}
         />
-        
         {isEditing && (
-           <>
-             {/* Delete Button */}
-             <button 
-                onClick={removeImage}
-                className="absolute top-2 right-2 bg-red-600 text-white p-1.5 rounded-full shadow-lg z-20 hover:scale-110 transition-transform opacity-0 group-hover/image:opacity-100"
-                title="Remove Image"
-             >
-               <Trash2 size={12} />
-             </button>
-
-             {/* Controls Toolbar */}
-             <div 
-               className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/80 backdrop-blur text-white p-1.5 rounded-lg flex items-center gap-3 shadow-xl z-20 opacity-0 group-hover/image:opacity-100 transition-opacity whitespace-nowrap"
-               onMouseDown={e => e.stopPropagation()} 
-             >
-                {/* Position Toggle */}
-                <button 
-                  onClick={cyclePosition}
-                  className="p-1 hover:bg-white/20 rounded"
-                  title="Position: Top -> Bottom -> Left -> Right"
-                >
-                  {getPositionIcon()}
-                </button>
-
-                <div className="w-px h-3 bg-white/20"></div>
-                
-                {/* Ratio Toggle (Only for vertical) */}
-                <button 
-                  onClick={cycleAspectRatio}
-                  className={`p-1 hover:bg-white/20 rounded flex items-center gap-1 min-w-[36px] justify-center ${isHorizontal ? 'opacity-30 pointer-events-none' : ''}`}
-                  title={isHorizontal ? "Ratio locked in horizontal mode" : "Aspect Ratio"}
-                >
-                  {getRatioIcon()}
-                  {!isHorizontal && <span className="text-[9px] font-mono">{editImageConfig.aspectRatio || "Free"}</span>}
-                </button>
-
-                <div className="w-px h-3 bg-white/20"></div>
-
-                {/* Scale (Min 0.2 for shrinking) */}
-                <div className="flex items-center gap-1" title="Zoom">
-                   <ZoomIn size={12} className="opacity-60" />
-                   <input 
-                     type="range" min="0.2" max="3" step="0.1"
-                     value={editImageConfig.scale}
-                     onChange={e => setEditImageConfig(p => ({ ...p, scale: parseFloat(e.target.value) }))}
-                     className="w-16 h-1 bg-white/30 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-2.5 [&::-webkit-slider-thumb]:h-2.5 [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:rounded-full"
-                   />
-                </div>
-
-                <div className="w-px h-3 bg-white/20"></div>
-
-                {/* Height/Width Ratio */}
-                 <div className={`flex items-center gap-1 transition-opacity ${(editImageConfig.aspectRatio && !isHorizontal) ? 'opacity-30 pointer-events-none' : 'opacity-100'}`} title={isHorizontal ? "Width" : "Height"}>
-                   <Scaling size={12} className="opacity-60" />
-                   <input 
-                     type="range" min="0.1" max="0.9" step="0.05"
-                     value={editImageConfig.heightRatio}
-                     onChange={e => setEditImageConfig(p => ({ ...p, heightRatio: parseFloat(e.target.value), aspectRatio: undefined }))}
-                     className="w-16 h-1 bg-white/30 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-2.5 [&::-webkit-slider-thumb]:h-2.5 [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:rounded-full"
-                   />
-                </div>
-                
-                <div className="w-px h-3 bg-white/20"></div>
-                <Move size={12} className="opacity-40 animate-pulse" />
-             </div>
-           </>
+          <div className="absolute inset-0 bg-black/5 opacity-0 group-hover/image:opacity-100 pointer-events-none transition-opacity flex items-center justify-center">
+             <Move size={24} className="text-white/50" />
+          </div>
         )}
       </div>
     );
@@ -492,8 +397,8 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
           {isCover ? (
              <div className={`w-full flex h-full ${isHorizontal ? 'flex-row items-center gap-6' : 'flex-col justify-center'} animate-in fade-in zoom-in-95 duration-500`}>
                
-               {editImageConfig.position === 'left' && renderEditableImage("h-full rounded-sm shadow-sm")}
-               {editImageConfig.position === 'top' && renderEditableImage("w-full max-h-[40%] mb-8 rounded-sm shadow-sm", true)}
+               {editImageConfig.position === 'left' && renderEditableImage("h-full rounded-sm")}
+               {editImageConfig.position === 'top' && renderEditableImage("w-full max-h-[40%] mb-8 rounded-sm", true)}
 
                <div className={`flex gap-6 md:gap-8 ${isHorizontal ? 'flex-1' : ''}`}>
                   <div className="w-1.5 shrink-0 opacity-80" style={{ backgroundColor: config.accentColor }}></div>
@@ -513,8 +418,8 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
                   </div>
                </div>
 
-               {editImageConfig.position === 'right' && renderEditableImage("h-full rounded-sm shadow-sm")}
-               {editImageConfig.position === 'bottom' && renderEditableImage("w-full max-h-[40%] mt-8 rounded-sm shadow-sm", true)}
+               {editImageConfig.position === 'right' && renderEditableImage("h-full rounded-sm")}
+               {editImageConfig.position === 'bottom' && renderEditableImage("w-full max-h-[40%] mt-8 rounded-sm", true)}
              </div>
           ) : (
             <>
@@ -747,8 +652,8 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
                  </div>
                )}
                
-               {editImageConfig.position === 'left' && renderEditableImage("h-full rounded-lg shadow-sm opacity-90", true)}
-               {editImageConfig.position === 'top' && renderEditableImage("w-full max-h-[40%] mb-8 rounded-lg shadow-sm opacity-90", true)}
+               {editImageConfig.position === 'left' && renderEditableImage("h-full rounded-lg opacity-90", true)}
+               {editImageConfig.position === 'top' && renderEditableImage("w-full max-h-[40%] mb-8 rounded-lg opacity-90", true)}
 
                <div className={`flex-1 ${isHorizontal ? 'flex flex-col justify-center text-left' : ''}`}>
                  {isEditing ? (
@@ -761,8 +666,8 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
                  )}
                </div>
 
-               {editImageConfig.position === 'right' && renderEditableImage("h-full rounded-lg shadow-sm opacity-90", true)}
-               {editImageConfig.position === 'bottom' && renderEditableImage("w-full max-h-[40%] mt-8 rounded-lg shadow-sm opacity-90", true)}
+               {editImageConfig.position === 'right' && renderEditableImage("h-full rounded-lg opacity-90", true)}
+               {editImageConfig.position === 'bottom' && renderEditableImage("w-full max-h-[40%] mt-8 rounded-lg opacity-90", true)}
             </div>
          ) : (
             <div className="flex-1 flex flex-col pt-8 min-h-0 relative z-0">
@@ -776,8 +681,8 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
                </div>
 
                <div className={`flex-1 flex min-h-0 ${isHorizontal ? 'flex-row gap-6' : 'flex-col'}`}>
-                  {editImageConfig.position === 'left' && renderEditableImage("h-full rounded-lg shadow-sm")}
-                  {editImageConfig.position === 'top' && renderEditableImage("w-full mb-6 rounded-lg shadow-sm")}
+                  {editImageConfig.position === 'left' && renderEditableImage("h-full rounded-lg")}
+                  {editImageConfig.position === 'top' && renderEditableImage("w-full mb-6 rounded-lg")}
 
                   <div className="flex-1 min-h-0 relative" style={{ fontSize: `${config.fontSize}rem`, color: config.textColor }}>
                       {isEditing ? (
@@ -790,8 +695,8 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
                       {renderOverflowBtn()}
                   </div>
 
-                  {editImageConfig.position === 'right' && renderEditableImage("h-full rounded-lg shadow-sm")}
-                  {editImageConfig.position === 'bottom' && renderEditableImage("w-full mt-6 rounded-lg shadow-sm")}
+                  {editImageConfig.position === 'right' && renderEditableImage("h-full rounded-lg")}
+                  {editImageConfig.position === 'bottom' && renderEditableImage("w-full mt-6 rounded-lg")}
                </div>
                
                {showNumber && (
@@ -844,14 +749,14 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
                    <div className={`flex-1 flex ${isHorizontal ? 'flex-row items-center gap-8' : 'flex-col'}`}>
                      
                      {editImageConfig.position === 'left' && editImage && (
-                       <div className="h-full rounded-2xl overflow-hidden shadow-sm relative shrink-0">
+                       <div className="h-full rounded-2xl overflow-hidden relative shrink-0">
                           {renderEditableImage("h-full", true)}
                           <div className="absolute inset-0 bg-gradient-to-r from-black/20 to-transparent pointer-events-none"></div>
                        </div>
                      )}
 
                      {editImageConfig.position === 'top' && editImage && (
-                       <div className="w-full mb-8 rounded-2xl overflow-hidden shadow-sm relative shrink-0 max-h-[45%]">
+                       <div className="w-full mb-8 rounded-2xl overflow-hidden relative shrink-0 max-h-[45%]">
                           {renderEditableImage("w-full h-full", true)}
                           <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent pointer-events-none"></div>
                        </div>
@@ -877,14 +782,14 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
                      </div>
 
                      {editImageConfig.position === 'right' && editImage && (
-                       <div className="h-full rounded-2xl overflow-hidden shadow-sm relative shrink-0">
+                       <div className="h-full rounded-2xl overflow-hidden relative shrink-0">
                           {renderEditableImage("h-full", true)}
                           <div className="absolute inset-0 bg-gradient-to-l from-black/20 to-transparent pointer-events-none"></div>
                        </div>
                      )}
 
                      {editImageConfig.position === 'bottom' && editImage && (
-                       <div className="w-full mt-auto rounded-2xl overflow-hidden shadow-sm relative shrink-0 max-h-[45%]">
+                       <div className="w-full mt-auto rounded-2xl overflow-hidden relative shrink-0 max-h-[45%]">
                           {renderEditableImage("w-full h-full", true)}
                           <div className="absolute inset-0 bg-gradient-to-b from-black/20 to-transparent pointer-events-none"></div>
                        </div>
@@ -918,8 +823,8 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
                    {/* Content Body */}
                    <div className={`flex-1 p-8 pt-6 relative min-h-0 flex ${isHorizontal ? 'flex-row gap-6' : 'flex-col'}`}>
                       
-                      {editImageConfig.position === 'left' && renderEditableImage("h-full rounded-xl shadow-sm")}
-                      {editImageConfig.position === 'top' && renderEditableImage("w-full mb-6 rounded-xl shadow-sm")}
+                      {editImageConfig.position === 'left' && renderEditableImage("h-full rounded-xl")}
+                      {editImageConfig.position === 'top' && renderEditableImage("w-full mb-6 rounded-xl")}
 
                       <div className="flex-1 min-h-0 relative" style={{ fontSize: `${config.fontSize}rem`, color: textColor }}>
                          {isEditing ? (
@@ -928,8 +833,8 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
                          {renderOverflowBtn()}
                       </div>
 
-                      {editImageConfig.position === 'right' && renderEditableImage("h-full rounded-xl shadow-sm")}
-                      {editImageConfig.position === 'bottom' && renderEditableImage("w-full mt-6 rounded-xl shadow-sm")}
+                      {editImageConfig.position === 'right' && renderEditableImage("h-full rounded-xl")}
+                      {editImageConfig.position === 'bottom' && renderEditableImage("w-full mt-6 rounded-xl")}
                    </div>
 
                    <div className="h-1.5 w-full mt-auto relative bg-current/5">
