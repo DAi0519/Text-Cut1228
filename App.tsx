@@ -298,7 +298,10 @@ const App: React.FC = () => {
           <div className="flex flex-col items-center py-20 px-4 min-h-full">
             
             {!hasContent ? (
-               <div className="flex-1 flex flex-col items-center justify-center select-none">
+               <div
+                 className="flex-1 flex flex-col items-center justify-start select-none"
+                 style={{ paddingTop: 'clamp(32px, 12vh, 140px)' }}
+               >
                   <div className="flex flex-col items-center animate-in fade-in zoom-in-95 duration-1000">
                     <h1 className="text-5xl md:text-7xl font-bold tracking-tighter text-[#18181b] text-center max-w-4xl leading-none">
                       Quantity produces quality<span className="text-[#ea580c]">.</span>
