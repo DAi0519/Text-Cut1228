@@ -25,6 +25,7 @@ export interface CardHandle {
   cancel: () => void;
   updateImageConfig: (updates: Partial<ImageConfig>) => void;
   removeImage: () => void;
+  toggleHighlight: () => void;
 }
 
 const DEFAULT_IMG_CONFIG: ImageConfig = {
@@ -47,6 +48,8 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
   
   const contentRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const titleInputRef = useRef<HTMLTextAreaElement | HTMLInputElement>(null);
+  const contentInputRef = useRef<HTMLTextAreaElement>(null);
 
   // --- NUMBERING LOGIC ---
   const isFirst = index === 0;
@@ -90,6 +93,202 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
     }
   };
 
+  type TextSegment = { text: string; bold: boolean };
+
+  const buildSegments = (text: string): TextSegment[] => {
+    const segments: TextSegment[] = [];
+    let bold = false;
+    let buffer = "";
+    let i = 0;
+
+    const pushBuffer = () => {
+      if (!buffer) return;
+      const last = segments[segments.length - 1];
+      if (last && last.bold === bold) {
+        last.text += buffer;
+      } else {
+        segments.push({ text: buffer, bold });
+      }
+      buffer = "";
+    };
+
+    while (i < text.length) {
+      if (text.slice(i, i + 2) === "**") {
+        pushBuffer();
+        bold = !bold;
+        i += 2;
+        continue;
+      }
+      buffer += text[i];
+      i += 1;
+    }
+
+    pushBuffer();
+    return segments;
+  };
+
+  const buildIndexMap = (text: string): number[] => {
+    const map = new Array(text.length + 1);
+    let plainIndex = 0;
+    let i = 0;
+    map[0] = 0;
+
+    while (i < text.length) {
+      if (text.slice(i, i + 2) === "**") {
+        map[i] = plainIndex;
+        map[i + 1] = plainIndex;
+        i += 2;
+        map[i] = plainIndex;
+        continue;
+      }
+      map[i] = plainIndex;
+      i += 1;
+      plainIndex += 1;
+      map[i] = plainIndex;
+    }
+
+    return map;
+  };
+
+  const plainIndexToTextIndex = (text: string, plainIndex: number) => {
+    let i = 0;
+    let count = 0;
+    while (i < text.length) {
+      if (text.slice(i, i + 2) === "**") {
+        i += 2;
+        continue;
+      }
+      if (count === plainIndex) return i;
+      i += 1;
+      count += 1;
+    }
+    return text.length;
+  };
+
+  const updateSegmentsBold = (
+    segments: TextSegment[],
+    start: number,
+    end: number,
+    boldValue: boolean,
+  ): TextSegment[] => {
+    const next: TextSegment[] = [];
+    let offset = 0;
+
+    const push = (text: string, bold: boolean) => {
+      if (!text) return;
+      const last = next[next.length - 1];
+      if (last && last.bold === bold) {
+        last.text += text;
+      } else {
+        next.push({ text, bold });
+      }
+    };
+
+    for (const segment of segments) {
+      const segStart = offset;
+      const segEnd = offset + segment.text.length;
+      offset = segEnd;
+
+      if (segEnd <= start || segStart >= end) {
+        push(segment.text, segment.bold);
+        continue;
+      }
+
+      const overlapStart = Math.max(start, segStart);
+      const overlapEnd = Math.min(end, segEnd);
+
+      if (segStart < overlapStart) {
+        push(segment.text.slice(0, overlapStart - segStart), segment.bold);
+      }
+
+      push(
+        segment.text.slice(overlapStart - segStart, overlapEnd - segStart),
+        boldValue,
+      );
+
+      if (overlapEnd < segEnd) {
+        push(segment.text.slice(overlapEnd - segStart), segment.bold);
+      }
+    }
+
+    return next;
+  };
+
+  const renderSegments = (segments: TextSegment[]) => {
+    let result = "";
+    for (const segment of segments) {
+      if (!segment.text) continue;
+      result += segment.bold ? `**${segment.text}**` : segment.text;
+    }
+    return result;
+  };
+
+  const toggleBoldAtSelection = (
+    text: string,
+    start: number,
+    end: number,
+  ): { newText: string; newStart: number; newEnd: number } => {
+    if (start === end) {
+      const before = text.slice(0, start);
+      const after = text.slice(end);
+      if (before.endsWith("**") && after.startsWith("**")) {
+        const newText = before.slice(0, -2) + after.slice(2);
+        return { newText, newStart: start - 2, newEnd: start - 2 };
+      }
+      const newText = before + "****" + after;
+      return { newText, newStart: start + 2, newEnd: start + 2 };
+    }
+
+    const indexMap = buildIndexMap(text);
+    const plainStart = indexMap[start] ?? 0;
+    const plainEnd = indexMap[end] ?? plainStart;
+
+    const segments = buildSegments(text);
+    let hasUnbold = false;
+    let offset = 0;
+    for (const segment of segments) {
+      const segStart = offset;
+      const segEnd = offset + segment.text.length;
+      offset = segEnd;
+      if (segEnd <= plainStart || segStart >= plainEnd) continue;
+      if (!segment.bold) {
+        hasUnbold = true;
+        break;
+      }
+    }
+
+    const shouldBold = hasUnbold;
+    const nextSegments = updateSegmentsBold(
+      segments,
+      plainStart,
+      plainEnd,
+      shouldBold,
+    );
+    const newText = renderSegments(nextSegments);
+    const newStart = plainIndexToTextIndex(newText, plainStart);
+    const newEnd = plainIndexToTextIndex(newText, plainEnd);
+
+    return { newText, newStart, newEnd };
+  };
+
+  const applyBoldToggle = (
+    inputEl: HTMLInputElement | HTMLTextAreaElement | null,
+    text: string,
+    setText: React.Dispatch<React.SetStateAction<string>>,
+  ) => {
+    if (!inputEl) return;
+    const start = inputEl.selectionStart ?? 0;
+    const end = inputEl.selectionEnd ?? 0;
+    const { newText, newStart, newEnd } = toggleBoldAtSelection(text, start, end);
+    setText(newText);
+    setTimeout(() => {
+      if (inputEl) {
+        inputEl.setSelectionRange(newStart, newEnd);
+        inputEl.focus();
+      }
+    }, 0);
+  };
+
   useImperativeHandle(ref, () => ({
     element: containerRef.current,
     toggleLayout: toggleLayout,
@@ -97,7 +296,23 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
     save: handleSave,
     cancel: handleCancel,
     updateImageConfig: (updates) => setEditImageConfig(prev => ({ ...prev, ...updates })),
-    removeImage: () => setEditImage(undefined)
+    removeImage: () => setEditImage(undefined),
+    toggleHighlight: () => {
+      const activeEl = document.activeElement;
+      if (activeEl === titleInputRef.current) {
+        applyBoldToggle(
+          titleInputRef.current,
+          editTitle,
+          setEditTitle,
+        );
+      } else if (activeEl === contentInputRef.current) {
+        applyBoldToggle(
+          contentInputRef.current,
+          editContent,
+          setEditContent,
+        );
+      }
+    }
   }));
 
   // Sync props to state when not editing
@@ -289,7 +504,7 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
       <ReactMarkdown 
         components={{
           p: ({node, ...props}) => <p className="mb-3 last:mb-0 text-justify hyphens-auto font-normal whitespace-pre-line" {...props} />,
-          strong: ({node, ...props}) => <strong className="font-semibold" {...props} />,
+          strong: ({node, ...props}) => <strong className="font-semibold" style={{ color: config.accentColor }} {...props} />,
           ul: ({node, children, ...props}) => {
             const validChildren = React.Children.toArray(children).filter(child => React.isValidElement(child));
             return (
@@ -375,8 +590,8 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
       {/* Header */}
       <div className={`h-16 shrink-0 px-8 flex items-center justify-between border-b ${borderColor} font-sans`}>
         <div className="flex flex-col justify-center h-full">
-           <span className={`text-[9px] font-mono uppercase tracking-[0.25em] ${secondaryTextColor} mb-0.5`}>Project</span>
-           <span className="text-xs font-bold uppercase tracking-widest truncate max-w-[120px] opacity-80">{config.title || "Untitled"}</span>
+           {!isFirst && <span className={`text-[9px] font-mono uppercase tracking-[0.25em] ${secondaryTextColor} mb-0.5`}>Project</span>}
+           <span className="text-xs font-bold uppercase tracking-widest truncate max-w-[120px] opacity-80">{isFirst ? "PROJECT" : (config.title || "Untitled")}</span>
         </div>
         <div className="flex items-center gap-4">
            {showNumber && (
@@ -384,9 +599,7 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
                {displayIndex}<span className="opacity-30 mx-1">/</span>{displayTotal}
              </div>
            )}
-           <div className="w-2.5 h-2.5 rounded-full shadow-sm relative" style={{ backgroundColor: config.accentColor }}>
-             <div className="absolute inset-0 rounded-full animate-pulse opacity-50 bg-white mix-blend-overlay"></div>
-           </div>
+           <div className="w-2.5 h-2.5 rounded-full shadow-sm relative" style={{ backgroundColor: config.accentColor }}></div>
         </div>
       </div>
 
@@ -401,7 +614,7 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
                {editImageConfig.position === 'top' && renderEditableImage("w-full max-h-[40%] mb-8 rounded-sm", true)}
 
                <div className={`flex gap-6 md:gap-8 ${isHorizontal ? 'flex-1' : ''}`}>
-                  <div className="w-1.5 shrink-0 opacity-80" style={{ backgroundColor: config.accentColor }}></div>
+                  <div className="w-1.5 shrink-0" style={{ backgroundColor: config.accentColor }}></div>
                   <div className="flex flex-col gap-6 w-full justify-center">
                      {isEditing ? (
                         <textarea value={editTitle} onChange={(e) => setEditTitle(e.target.value)} placeholder="ENTER TITLE"
@@ -424,15 +637,10 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
           ) : (
             <>
               <div className="shrink-0 animate-in fade-in slide-in-from-top-2 duration-300">
-                <div className="mb-6">
-                  {showNumber && (
-                    <div className="flex items-center gap-3 mb-2 opacity-60">
-                      <div className="w-2 h-2 border border-current opacity-50"></div>
-                      <span className="font-mono text-[9px] uppercase tracking-[0.2em]">Segment {displayIndex}</span>
-                    </div>
-                  )}
+                <div className="mb-4">
+                  {/* Segment Decoration Removed */}
                   {isEditing ? (
-                    <input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} placeholder="(No Title)"
+                    <input ref={titleInputRef as any} value={editTitle} onChange={(e) => setEditTitle(e.target.value)} placeholder="(No Title)"
                       className={`w-full bg-transparent text-[1.75rem] font-bold leading-tight outline-none border-b border-dashed border-current/30 py-1 ${inputBgColor} placeholder:text-current/20 ${getFontClass(config.fontStyle)}`} style={{ color: config.textColor }} />
                   ) : ( editTitle && <h2 className={`text-[1.75rem] font-bold leading-tight whitespace-pre-wrap ${getFontClass(config.fontStyle)}`} style={{ color: config.textColor }}>{editTitle}</h2> )}
                 </div>
@@ -446,7 +654,7 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
                  {editImageConfig.position === 'top' && renderEditableImage("w-full mb-6 rounded-sm")}
 
                  <div className="flex-1 min-h-0 relative" style={{ fontSize: `${config.fontSize}rem`, color: config.textColor }}>
-                    {isEditing ? <textarea value={editContent} onChange={(e) => setEditContent(e.target.value)} className={`w-full h-full bg-transparent resize-none outline-none p-2 rounded leading-relaxed text-sm opacity-90 ${inputBgColor}`} style={{ color: config.textColor }} /> : renderMarkdownContent()}
+                    {isEditing ? <textarea ref={contentInputRef} value={editContent} onChange={(e) => setEditContent(e.target.value)} className={`w-full h-full bg-transparent resize-none outline-none p-2 rounded leading-relaxed text-sm opacity-90 ${inputBgColor}`} style={{ color: config.textColor }} /> : renderMarkdownContent()}
                     {renderOverflowBtn()}
                  </div>
 
@@ -497,11 +705,10 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
       <div className={`flex flex-col h-full w-full relative ${baseFont} overflow-hidden select-none`}>
          
          {/* Header */}
-         <div className="h-10 shrink-0 flex items-end justify-between px-6 border-b-2 border-current pb-2 font-bold uppercase tracking-tighter text-[10px] leading-none z-20 bg-inherit">
+         <div className={`h-10 shrink-0 flex items-end justify-between ${isCover ? 'mx-6 px-0' : 'px-6'} border-b-2 border-current pb-2 font-bold uppercase tracking-tighter text-[10px] leading-none z-20 bg-inherit`}>
             <div className="flex gap-4 items-baseline">
-               <span>{config.authorName || "SYS_OP"}</span>
                <span className="opacity-30">/</span>
-               {showNumber && <span>SERIES {displayIndex}</span>}
+               <span>{isFirst ? "PROJECT" : (config.title || "Project")}</span>
             </div>
             <div className={`font-mono text-[9px] px-1 py-0.5 text-white font-bold uppercase`} style={{ backgroundColor: config.accentColor }}>
                RUN_{new Date().getFullYear()}
@@ -515,7 +722,7 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
               style={{ 
                  fontSize: '8rem', 
                  color: isCover ? config.accentColor : 'currentColor',
-                 opacity: isCover ? 1 : 0.1 
+                 opacity: isCover ? 1 : 0.05 
               }}
            >
               {displayIndex}
@@ -524,7 +731,7 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
 
          {isCover ? (
            <div className="flex-1 flex flex-col relative p-6 z-10">
-              <div className="mb-8 flex items-center gap-1 opacity-40">
+              <div className="mb-8 flex items-center gap-1 opacity-20">
                   <div className="w-1 h-4 bg-current"></div>
                   <div className="w-1 h-4 border border-current"></div>
                   <div className="w-24 h-[1px] bg-current ml-2"></div>
@@ -549,11 +756,14 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
                  {editImageConfig.position === 'bottom' && renderTechnicalImage(true)}
               </div>
 
-              <div className="mt-auto border-t-2 border-current pt-4 flex items-end justify-between">
+              <div className="mt-auto border-t-2 border-current pt-2 flex items-center justify-between">
                  <div className="flex flex-col gap-1 text-[9px] uppercase font-mono max-w-[100px]">
                     <span className="opacity-50">Design Build</span>
-                    <span>{config.title || "Project"}</span>
-                    <span className="block w-4 h-4 rounded-full border border-current mt-2"></span>
+                    <span>{config.authorName || "SYS_OP"}</span>
+                 </div>
+                 <div className="flex items-center gap-2 opacity-20">
+                     <div className="w-12 h-[1px] bg-current"></div>
+                     <div className="w-2.5 h-2.5 bg-current"></div>
                  </div>
               </div>
            </div>
@@ -575,14 +785,14 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
               {/* Main Content Area */}
               <div className="flex-1 flex flex-col p-6 min-h-0">
                  {/* Section Title Block */}
-                 <div className="shrink-0 mb-4 flex items-end justify-between border-b border-current/20 pb-2 min-h-[32px]">
+                   <div className="shrink-0 mb-4 flex items-center justify-between border-b border-current/20 pb-2 min-h-[32px]">
                     {isEditing ? (
-                       <input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} 
+                       <input ref={titleInputRef as any} value={editTitle} onChange={(e) => setEditTitle(e.target.value)} 
                         className={`bg-transparent text-xl font-bold uppercase tracking-tight w-full outline-none ${inputBgColor}`} style={{ color: config.textColor }} placeholder="DATA BLOCK" />
                     ) : ( editTitle && (
                        <h2 className="text-xl font-bold uppercase tracking-tight leading-none">{editTitle}</h2>
                     ))}
-                    <div className="w-2 h-2 opacity-100" style={{ backgroundColor: config.accentColor }}></div>
+                    <div className="w-2.5 h-2.5 opacity-100" style={{ backgroundColor: config.accentColor }}></div>
                  </div>
                  
                  {/* Technical Image Body */}
@@ -607,7 +817,7 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
                     {/* Text Body */}
                     <div className={`flex-1 min-h-0 relative flex flex-col justify-center leading-relaxed ${config.fontStyle === FontStyle.SERIF ? 'font-serif-sc' : 'font-mono'}`} style={{ fontSize: `${config.fontSize}rem`, color: config.textColor }}>
                        {isEditing ? (
-                         <textarea value={editContent} onChange={(e) => setEditContent(e.target.value)} className={`w-full h-full bg-transparent resize-none outline-none p-2 ${inputBgColor}`} style={{ color: config.textColor }} />
+                         <textarea ref={contentInputRef} value={editContent} onChange={(e) => setEditContent(e.target.value)} className={`w-full h-full bg-transparent resize-none outline-none p-2 ${inputBgColor}`} style={{ color: config.textColor }} />
                        ) : renderMarkdownContent()}
                        {renderOverflowBtn()}
                     </div>
@@ -673,7 +883,7 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
             <div className="flex-1 flex flex-col pt-8 min-h-0 relative z-0">
                <div className="text-center mb-6 shrink-0">
                   {isEditing ? (
-                     <input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} 
+                     <input ref={titleInputRef as any} value={editTitle} onChange={(e) => setEditTitle(e.target.value)} 
                       className={`bg-transparent text-base text-center font-ming-light uppercase tracking-widest w-full outline-none opacity-60 ${inputBgColor}`} style={{ color: config.textColor }} />
                   ) : ( editTitle && (
                      <h2 className="text-base font-ming-light uppercase tracking-widest opacity-60 whitespace-pre-wrap">{editTitle}</h2>
@@ -686,7 +896,7 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
 
                   <div className="flex-1 min-h-0 relative" style={{ fontSize: `${config.fontSize}rem`, color: config.textColor }}>
                       {isEditing ? (
-                          <textarea value={editContent} onChange={(e) => setEditContent(e.target.value)} className={`w-full h-full bg-transparent resize-none outline-none p-2 leading-relaxed font-ming-light ${inputBgColor} ${isHorizontal ? 'text-left' : 'text-center'}`} style={{ color: config.textColor }} />
+                          <textarea ref={contentInputRef} value={editContent} onChange={(e) => setEditContent(e.target.value)} className={`w-full h-full bg-transparent resize-none outline-none p-2 leading-relaxed font-ming-light ${inputBgColor} ${isHorizontal ? 'text-left' : 'text-center'}`} style={{ color: config.textColor }} />
                       ) : (
                         <div className={`leading-loose opacity-80 font-ming-light ${isHorizontal ? 'text-left' : 'text-justify'}`}>
                           {renderMarkdownContent()}
@@ -806,13 +1016,13 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
                            </span>
                          ) : <div></div>}
                          <span className="text-[9px] font-bold uppercase tracking-widest opacity-40">
-                            {config.title || "FLUX"}
+                            {isFirst ? "PROJECT" : (config.title || "FLUX")}
                          </span>
                       </div>
                       
                       <div className="mt-4">
                         {isEditing ? (
-                           <input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} 
+                           <input ref={titleInputRef as any} value={editTitle} onChange={(e) => setEditTitle(e.target.value)} 
                             className={`bg-transparent text-2xl font-bold uppercase tracking-tight w-full outline-none ${inputBgColor} rounded px-1`} style={{ color: textColor }} placeholder="SECTION" />
                         ) : ( editTitle && (
                            <h2 className="text-2xl font-bold uppercase tracking-tight leading-none opacity-95" style={{color: textColor}}>{editTitle}</h2>
@@ -828,7 +1038,7 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
 
                       <div className="flex-1 min-h-0 relative" style={{ fontSize: `${config.fontSize}rem`, color: textColor }}>
                          {isEditing ? (
-                            <textarea value={editContent} onChange={(e) => setEditContent(e.target.value)} className={`w-full h-full bg-transparent resize-none outline-none p-2 rounded ${inputBgColor}`} style={{ color: textColor }} />
+                            <textarea ref={contentInputRef} value={editContent} onChange={(e) => setEditContent(e.target.value)} className={`w-full h-full bg-transparent resize-none outline-none p-2 rounded ${inputBgColor}`} style={{ color: textColor }} />
                          ) : renderMarkdownContent()}
                          {renderOverflowBtn()}
                       </div>
