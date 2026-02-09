@@ -7,7 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Noto+Serif+SC:wght@200;300;400;600;700&family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Cinzel:wght@400;600&family=JetBrains+Mono:wght@400;500&family=Zen+Old+Mincho:wght@400;500;600;700;900&display=swap" rel="stylesheet" crossorigin="anonymous">
+
     
     <style>
       ::-webkit-scrollbar {
@@ -25,17 +25,34 @@
         background: #a1a1aa;
       }
       body {
-        font-family: 'Inter', sans-serif;
-        background-color: #ffffff; /* Pure White */
-        color: #18181b; /* Zinc 900 */
+        background-color: #ffffff;
+        color: #18181b; 
       }
-      /* Updated to use LXGW Zhi Song as primary serif */
-      .font-serif-sc { font-family: 'LXGW Zhi Song Screen', 'Noto Serif SC', serif; }
-      /* New Ming Light (Chuxia Style) */
-      .font-ming-light { font-family: 'Chuxia Ming', 'ChuxiaMing', 'Zen Old Mincho', 'Noto Serif SC', serif; font-weight: 400; }
-      .font-display { font-family: 'Playfair Display', serif; }
-      .font-cinzel { font-family: 'Cinzel', serif; }
-      .font-mono { font-family: 'JetBrains Mono', monospace; }
+
+      @font-face {
+        font-family: 'ChillDuanHeiSong';
+        src: url('/public/fonts/ChillDuanHeiSongRegular.otf') format('opentype');
+        font-weight: normal;
+        font-style: normal;
+      }
+
+      @font-face {
+        font-family: 'OPPOSans';
+        src: url('/public/fonts/OPPO Sans 4.0.ttf') format('truetype');
+        font-weight: normal;
+        font-style: normal;
+      }
+
+      @font-face {
+        font-family: 'SweiSpringSugar';
+        src: url('/public/fonts/SweiSpringSugarCJKsc-Regular.ttf') format('truetype');
+        font-weight: normal;
+        font-style: normal;
+      }
+
+      .font-chill { font-family: 'ChillDuanHeiSong', sans-serif; }
+      .font-oppo { font-family: 'OPPOSans', sans-serif; }
+      .font-swei { font-family: 'SweiSpringSugar', sans-serif; }
       
       .no-scrollbar::-webkit-scrollbar { display: none; }
       .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }

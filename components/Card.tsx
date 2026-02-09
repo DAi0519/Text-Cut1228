@@ -392,15 +392,14 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
 
   const getFontClass = (style?: FontStyle) => {
     switch (style) {
-      case FontStyle.MONO: return 'font-mono';
-      case FontStyle.MING_LIGHT: return 'font-ming-light';
-      case FontStyle.SERIF: return 'font-serif-sc'; 
-      case FontStyle.SANS: default: return 'font-sans';
+      case FontStyle.CHILL: return 'font-chill';
+      case FontStyle.OPPO: return 'font-oppo';
+      case FontStyle.SWEI: default: return 'font-swei'; 
     }
   };
 
   // Shared Styles
-  const isDark = config.colorway === 'carbon' || config.colorway === 'neon';
+  const isDark = config.colorway === 'neon';
   const gridColor = isDark ? 'bg-white/5' : 'bg-black/5';
   const borderColor = isDark ? 'border-white/10' : 'border-black/10';
   const secondaryTextColor = isDark ? 'text-white/40' : 'text-black/40';
@@ -680,7 +679,7 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
 
   // 4. TECHNICAL
   const renderTechnical = () => {
-    const baseFont = getFontClass(FontStyle.SANS); 
+    const baseFont = getFontClass(); 
     const isHorizontal = editImageConfig.position === 'left' || editImageConfig.position === 'right';
     
     // Helper to render the framed technical image
@@ -815,7 +814,7 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
                     )}
 
                     {/* Text Body */}
-                    <div className={`flex-1 min-h-0 relative flex flex-col justify-center leading-relaxed ${config.fontStyle === FontStyle.SERIF ? 'font-serif-sc' : 'font-mono'}`} style={{ fontSize: `${config.fontSize}rem`, color: config.textColor }}>
+                    <div className={`flex-1 min-h-0 relative flex flex-col justify-center leading-relaxed ${getFontClass(config.fontStyle)}`} style={{ fontSize: `${config.fontSize}rem`, color: config.textColor }}>
                        {isEditing ? (
                          <textarea ref={contentInputRef} value={editContent} onChange={(e) => setEditContent(e.target.value)} className={`w-full h-full bg-transparent resize-none outline-none p-2 ${inputBgColor}`} style={{ color: config.textColor }} />
                        ) : renderMarkdownContent()}
@@ -845,218 +844,9 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
     );
   };
 
-  // 5. ZEN
-  const renderZen = () => {
-    const isHorizontal = editImageConfig.position === 'left' || editImageConfig.position === 'right';
 
-    return (
-      <div className="flex flex-col h-full w-full relative p-8">
-         
-         <div className="absolute top-8 left-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full z-10" style={{ backgroundColor: config.accentColor }}></div>
 
-         {isCover ? (
-            <div className={`flex-1 flex ${isHorizontal ? 'flex-row items-center gap-8' : 'flex-col justify-center items-center text-center'} relative z-0 h-full`}>
-               {showNumber && !isHorizontal && (
-                 <div className="mt-8 mb-8 opacity-60 font-ming-light">
-                    <span className="text-xs uppercase tracking-[0.3em]">No. {displayIndex}</span>
-                 </div>
-               )}
-               
-               {editImageConfig.position === 'left' && renderEditableImage("h-full rounded-lg opacity-90", true)}
-               {editImageConfig.position === 'top' && renderEditableImage("w-full max-h-[40%] mb-8 rounded-lg opacity-90", true)}
 
-               <div className={`flex-1 ${isHorizontal ? 'flex flex-col justify-center text-left' : ''}`}>
-                 {isEditing ? (
-                    <textarea value={editTitle} onChange={(e) => setEditTitle(e.target.value)} placeholder="Title"
-                      className={`w-full bg-transparent text-3xl font-ming-light outline-none ${inputBgColor} ${isHorizontal ? 'text-left' : 'text-center'}`} rows={3} style={{ color: config.textColor, resize: 'none' }} />
-                 ) : (
-                   <h2 className="text-3xl font-ming-light leading-relaxed tracking-wide opacity-90 whitespace-pre-wrap">
-                     {editTitle || "The Essence"}
-                   </h2>
-                 )}
-               </div>
-
-               {editImageConfig.position === 'right' && renderEditableImage("h-full rounded-lg opacity-90", true)}
-               {editImageConfig.position === 'bottom' && renderEditableImage("w-full max-h-[40%] mt-8 rounded-lg opacity-90", true)}
-            </div>
-         ) : (
-            <div className="flex-1 flex flex-col pt-8 min-h-0 relative z-0">
-               <div className="text-center mb-6 shrink-0">
-                  {isEditing ? (
-                     <input ref={titleInputRef as any} value={editTitle} onChange={(e) => setEditTitle(e.target.value)} 
-                      className={`bg-transparent text-base text-center font-ming-light uppercase tracking-widest w-full outline-none opacity-60 ${inputBgColor}`} style={{ color: config.textColor }} />
-                  ) : ( editTitle && (
-                     <h2 className="text-base font-ming-light uppercase tracking-widest opacity-60 whitespace-pre-wrap">{editTitle}</h2>
-                  ))}
-               </div>
-
-               <div className={`flex-1 flex min-h-0 ${isHorizontal ? 'flex-row gap-6' : 'flex-col'}`}>
-                  {editImageConfig.position === 'left' && renderEditableImage("h-full rounded-lg")}
-                  {editImageConfig.position === 'top' && renderEditableImage("w-full mb-6 rounded-lg")}
-
-                  <div className="flex-1 min-h-0 relative" style={{ fontSize: `${config.fontSize}rem`, color: config.textColor }}>
-                      {isEditing ? (
-                          <textarea ref={contentInputRef} value={editContent} onChange={(e) => setEditContent(e.target.value)} className={`w-full h-full bg-transparent resize-none outline-none p-2 leading-relaxed font-ming-light ${inputBgColor} ${isHorizontal ? 'text-left' : 'text-center'}`} style={{ color: config.textColor }} />
-                      ) : (
-                        <div className={`leading-loose opacity-80 font-ming-light ${isHorizontal ? 'text-left' : 'text-justify'}`}>
-                          {renderMarkdownContent()}
-                        </div>
-                      )}
-                      {renderOverflowBtn()}
-                  </div>
-
-                  {editImageConfig.position === 'right' && renderEditableImage("h-full rounded-lg")}
-                  {editImageConfig.position === 'bottom' && renderEditableImage("w-full mt-6 rounded-lg")}
-               </div>
-               
-               {showNumber && (
-                 <div className="absolute bottom-0 right-0 opacity-20 text-[10px] font-mono">
-                   {displayIndex}
-                 </div>
-               )}
-            </div>
-         )}
-      </div>
-    );
-  };
-
-  // 10. FLUX
-  const renderFlux = () => {
-    const isDark = config.colorway === 'carbon' || config.colorway === 'neon';
-    const gradientOpacity = isDark ? 0.25 : 0.4; 
-    const glassBg = isDark ? 'bg-black/20 backdrop-blur-2xl' : 'bg-white/50 backdrop-blur-3xl';
-    const glassBorder = isDark ? 'border-white/10' : 'border-white/50';
-    const textColor = config.textColor;
-    const isHorizontal = editImageConfig.position === 'left' || editImageConfig.position === 'right';
-
-    return (
-       <div className="flex flex-col h-full w-full relative overflow-hidden select-none">
-          
-          <div className="absolute inset-0 z-0">
-             <div className="absolute inset-0" style={{backgroundColor: config.backgroundColor}}></div>
-             
-             <div 
-               className="absolute -top-[10%] -right-[10%] w-[80%] h-[80%] rounded-full blur-[120px] mix-blend-multiply dark:mix-blend-screen pointer-events-none"
-               style={{ backgroundColor: config.accentColor, opacity: gradientOpacity }}
-             ></div>
-             
-             <div 
-               className="absolute bottom-0 left-0 w-[100%] h-[60%] rounded-full blur-[100px] mix-blend-multiply dark:mix-blend-screen pointer-events-none"
-               style={{ backgroundColor: config.accentColor, opacity: gradientOpacity * 0.6 }}
-             ></div>
-          </div>
-
-          <div className={`relative z-10 flex-1 m-4 rounded-[24px] ${glassBg} border ${glassBorder} flex flex-col overflow-hidden shadow-sm`}>
-             
-             {isCover ? (
-                <div className="flex-1 flex flex-col p-8 relative">
-                   {showNumber && (
-                     <div className="absolute top-0 right-4 text-[12rem] font-bold leading-none tracking-tighter opacity-[0.05] pointer-events-none select-none">
-                       {displayIndex}
-                     </div>
-                   )}
-                   
-                   <div className={`flex-1 flex ${isHorizontal ? 'flex-row items-center gap-8' : 'flex-col'}`}>
-                     
-                     {editImageConfig.position === 'left' && editImage && (
-                       <div className="h-full rounded-2xl overflow-hidden relative shrink-0">
-                          {renderEditableImage("h-full", true)}
-                          <div className="absolute inset-0 bg-gradient-to-r from-black/20 to-transparent pointer-events-none"></div>
-                       </div>
-                     )}
-
-                     {editImageConfig.position === 'top' && editImage && (
-                       <div className="w-full mb-8 rounded-2xl overflow-hidden relative shrink-0 max-h-[45%]">
-                          {renderEditableImage("w-full h-full", true)}
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent pointer-events-none"></div>
-                       </div>
-                     )}
-
-                     <div className={`flex-1 flex flex-col ${isHorizontal ? 'justify-center' : 'mt-auto mb-8 relative z-20'}`}>
-                       {!isHorizontal && <div className="w-16 h-2 mb-6 rounded-full" style={{ backgroundColor: config.accentColor }}></div>}
-                       
-                       {isEditing ? (
-                          <textarea value={editTitle} onChange={(e) => setEditTitle(e.target.value)} placeholder="TITLE"
-                            className={`w-full bg-transparent text-6xl font-bold leading-[0.9] outline-none ${inputBgColor} ${getFontClass(config.fontStyle)} tracking-tighter uppercase rounded-lg p-2`} rows={3} style={{ color: config.textColor, resize: 'none' }} />
-                       ) : (
-                         <h1 className={`text-6xl font-bold leading-[0.9] tracking-tighter uppercase break-words whitespace-pre-wrap drop-shadow-sm ${getFontClass(config.fontStyle)}`} style={{ color: config.textColor }}>
-                           {editTitle || "UNTITLED"}
-                         </h1>
-                       )}
-                       
-                       {config.authorName && (
-                          <div className="mt-6 flex items-center gap-3">
-                             <span className="text-[10px] font-bold uppercase tracking-[0.2em] opacity-60">By {config.authorName}</span>
-                          </div>
-                       )}
-                     </div>
-
-                     {editImageConfig.position === 'right' && editImage && (
-                       <div className="h-full rounded-2xl overflow-hidden relative shrink-0">
-                          {renderEditableImage("h-full", true)}
-                          <div className="absolute inset-0 bg-gradient-to-l from-black/20 to-transparent pointer-events-none"></div>
-                       </div>
-                     )}
-
-                     {editImageConfig.position === 'bottom' && editImage && (
-                       <div className="w-full mt-auto rounded-2xl overflow-hidden relative shrink-0 max-h-[45%]">
-                          {renderEditableImage("w-full h-full", true)}
-                          <div className="absolute inset-0 bg-gradient-to-b from-black/20 to-transparent pointer-events-none"></div>
-                       </div>
-                     )}
-                   </div>
-                </div>
-             ) : (
-                <div className="flex-1 flex flex-col relative">
-                   <div className="p-8 pb-4 border-b border-current/10 flex flex-col gap-1">
-                      <div className="flex justify-between items-baseline">
-                         {showNumber ? (
-                           <span className="text-6xl font-bold tracking-tighter leading-none opacity-90" style={{color: textColor}}>
-                              {displayIndex}
-                           </span>
-                         ) : <div></div>}
-                         <span className="text-[9px] font-bold uppercase tracking-widest opacity-40">
-                            {isFirst ? "PROJECT" : (config.title || "FLUX")}
-                         </span>
-                      </div>
-                      
-                      <div className="mt-4">
-                        {isEditing ? (
-                           <input ref={titleInputRef as any} value={editTitle} onChange={(e) => setEditTitle(e.target.value)} 
-                            className={`bg-transparent text-2xl font-bold uppercase tracking-tight w-full outline-none ${inputBgColor} rounded px-1`} style={{ color: textColor }} placeholder="SECTION" />
-                        ) : ( editTitle && (
-                           <h2 className="text-2xl font-bold uppercase tracking-tight leading-none opacity-95" style={{color: textColor}}>{editTitle}</h2>
-                        ))}
-                      </div>
-                   </div>
-
-                   {/* Content Body */}
-                   <div className={`flex-1 p-8 pt-6 relative min-h-0 flex ${isHorizontal ? 'flex-row gap-6' : 'flex-col'}`}>
-                      
-                      {editImageConfig.position === 'left' && renderEditableImage("h-full rounded-xl")}
-                      {editImageConfig.position === 'top' && renderEditableImage("w-full mb-6 rounded-xl")}
-
-                      <div className="flex-1 min-h-0 relative" style={{ fontSize: `${config.fontSize}rem`, color: textColor }}>
-                         {isEditing ? (
-                            <textarea ref={contentInputRef} value={editContent} onChange={(e) => setEditContent(e.target.value)} className={`w-full h-full bg-transparent resize-none outline-none p-2 rounded ${inputBgColor}`} style={{ color: textColor }} />
-                         ) : renderMarkdownContent()}
-                         {renderOverflowBtn()}
-                      </div>
-
-                      {editImageConfig.position === 'right' && renderEditableImage("h-full rounded-xl")}
-                      {editImageConfig.position === 'bottom' && renderEditableImage("w-full mt-6 rounded-xl")}
-                   </div>
-
-                   <div className="h-1.5 w-full mt-auto relative bg-current/5">
-                      <div className="absolute top-0 bottom-0 left-0 bg-current transition-all duration-500" 
-                           style={{ width: `${((index + 1) / total) * 100}%`, color: config.accentColor }}></div>
-                   </div>
-                </div>
-             )}
-          </div>
-       </div>
-    );
-  }
 
   // --- MAIN RENDER ---
   const getContainerStyle = () => {
@@ -1073,23 +863,7 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
       }
     }
     
-    if (config.composition === 'zen') {
-      return {
-        ...baseStyle,
-        borderRadius: '2px',
-        boxShadow: '0 10px 30px -10px rgba(0,0,0,0.05)',
-      }
-    }
 
-    if (config.composition === 'flux') {
-      return {
-        ...baseStyle,
-        borderRadius: '32px',
-        boxShadow: isDark
-           ? '0 20px 40px -10px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(255,255,255,0.1)'
-           : '0 25px 50px -12px rgba(0,0,0,0.1), inset 0 0 0 1px rgba(0,0,0,0.03)',
-      }
-    }
 
     return {
       ...baseStyle,
@@ -1113,8 +887,7 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
 
        {config.composition === 'classic' && renderClassic()}
        {config.composition === 'technical' && renderTechnical()}
-       {config.composition === 'zen' && renderZen()}
-       {config.composition === 'flux' && renderFlux()}
+
        
     </div>
   );

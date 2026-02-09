@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { CardConfig, AspectRatio, FontStyle, Preset, Composition } from '../types';
-import { AlignLeft, Type, Grid, Crop, Scaling, SlidersHorizontal, FileText, Layout } from 'lucide-react';
+import { AlignLeft, Type, Grid, Crop, Scaling, SlidersHorizontal, FileText, Layout, Hash, Palette } from 'lucide-react';
 
 interface ControlPanelProps {
   inputText: string;
@@ -21,11 +21,7 @@ const COLORWAYS: Preset[] = [
     name: 'Neon',
     config: { colorway: 'neon', backgroundColor: '#111111', textColor: '#ffffff', accentColor: '#ccff00' }
   },
-  {
-    id: 'carbon',
-    name: 'Carbon',
-    config: { colorway: 'carbon', backgroundColor: '#18181b', textColor: '#e4e4e7', accentColor: '#ea580c' }
-  }
+
 ];
 
 export const ControlPanel: React.FC<ControlPanelProps> = ({ 
@@ -42,17 +38,15 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   };
 
   const fontStyles = [
-    { value: FontStyle.SANS, label: 'Sans' },
-    { value: FontStyle.SERIF, label: 'Serif' },
-    { value: FontStyle.MING_LIGHT, label: 'Ming' },
-    { value: FontStyle.MONO, label: 'Mono' },
+    { value: FontStyle.CHILL, label: 'Chill' },
+    { value: FontStyle.OPPO, label: 'OPPO' },
+    { value: FontStyle.SWEI, label: 'Swei' },
   ];
 
   const compositions: { value: Composition, label: string }[] = [
     { value: 'classic', label: 'Classic' },
     { value: 'technical', label: 'Tech' },
-    { value: 'zen', label: 'Zen' },
-    { value: 'flux', label: 'Flux' },
+
   ];
 
   return (
@@ -145,23 +139,37 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                     key={c.id}
                     onClick={() => setConfig(prev => ({...prev, ...c.config}))}
                     className={`
-                      h-16 border rounded-lg flex flex-col items-center justify-center gap-2 transition-all group relative overflow-hidden
+                      h-12 border rounded-lg flex flex-row items-center justify-center gap-2 transition-all group relative overflow-hidden
                       ${config.colorway === c.id 
-                        ? 'border-black bg-white shadow-md ring-1 ring-black/5' 
-                        : 'border-black/5 bg-[#fafafa] hover:bg-white hover:border-black/20'}
+                        ? 'bg-black text-white border-black shadow-lg' 
+                        : 'bg-[#fafafa] border-black/5 text-black/60 hover:bg-white hover:border-black/20'}
                     `}
                   >
-                    <div className="w-4 h-4 rounded-full border border-black/10 shadow-sm z-10" style={{ backgroundColor: c.config.backgroundColor }}></div>
-                    <span className="text-[9px] uppercase font-bold tracking-widest opacity-60 group-hover:opacity-100 z-10">{c.name}</span>
-                    
-                    {/* Active Corner Marker */}
-                    {config.colorway === c.id && (
-                       <div className="absolute top-0 right-0 w-3 h-3 bg-black">
-                          <div className="absolute bottom-0 left-0 w-[150%] h-[150%] bg-white -rotate-45 transform origin-bottom-left"></div>
-                       </div>
-                    )}
+                    <div className={`w-2.5 h-2.5 rounded-full border shadow-sm z-10 ${config.colorway === c.id ? 'border-white/20' : 'border-black/10'}`} style={{ backgroundColor: c.id === 'neon' && config.colorway === c.id ? c.config.accentColor : c.config.backgroundColor }}></div>
+                    <span className="text-[10px] uppercase font-bold tracking-wider z-10">{c.name}</span>
                   </button>
                 ))}
+                
+                {/* Custom Accent Color Input */}
+                <div className="h-12 border border-black/5 rounded-lg bg-[#fafafa] hover:bg-white hover:border-black/20 transition-all flex items-center justify-center gap-2 group focus-within:ring-1 focus-within:ring-black/5 focus-within:border-black/20 focus-within:bg-white relative overflow-hidden">
+                  <div className="w-2.5 h-2.5 rounded-full shadow-sm shrink-0 border border-black/10" style={{ backgroundColor: config.accentColor }}></div>
+                  <div className="flex items-center relative">
+                    <span className="text-[10px] font-bold text-black/40 mr-0.5 select-none">#</span>
+                    <input 
+                      type="text" 
+                      value={config.accentColor.replace('#', '')}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (/^[0-9A-Fa-f]{0,6}$/.test(val)) {
+                           updateConfig('accentColor', '#' + val);
+                        }
+                      }}
+                      className="w-[6ch] bg-transparent text-[10px] font-mono font-bold uppercase text-black/80 focus:outline-none tracking-wider placeholder:text-black/20"
+                      placeholder="HEX"
+                      maxLength={6}
+                    />
+                  </div>
+                </div>
               </div>
             </div>
 

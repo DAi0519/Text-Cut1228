@@ -63,7 +63,7 @@ const App: React.FC = () => {
       backgroundColor: "#f4f4f5",
       textColor: "#18181b",
       accentColor: "#ea580c",
-      fontStyle: FontStyle.SERIF,
+      fontStyle: FontStyle.SWEI,
       composition: "classic",
       aspectRatio: AspectRatio.PORTRAIT,
       fontSize: 1.0,
@@ -93,21 +93,7 @@ const App: React.FC = () => {
     localStorage.setItem("textcuts_config", JSON.stringify(config));
   }, [config]);
 
-  // Load LXGW Font manually
-  useEffect(() => {
-    const linkId = "lxgw-font-style";
-    if (!document.getElementById(linkId)) {
-      fetch("https://cdn.jsdelivr.net/npm/lxgw-zhi-song-screen-web/style.css")
-        .then((res) => res.text())
-        .then((css) => {
-          const style = document.createElement("style");
-          style.id = linkId;
-          style.appendChild(document.createTextNode(css));
-          document.head.appendChild(style);
-        })
-        .catch((err) => console.error("Failed to load LXGW font:", err));
-    }
-  }, []);
+
 
   const cardRefs = useRef<(CardHandle | null)[]>([]);
 
