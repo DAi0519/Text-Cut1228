@@ -1,5 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from "react";
 import { ControlPanel } from "./components/ControlPanel";
+import { Toolbar } from "./components/Toolbar";
 import { Card, CardHandle } from "./components/Card";
 import {
   CardConfig,
@@ -35,6 +36,48 @@ import {
 } from "lucide-react";
 import { toPng } from "html-to-image";
 
+const VALID_COMPOSITIONS = new Set(["classic", "technical"]);
+const VALID_ASPECT_RATIOS = new Set([
+  AspectRatio.PORTRAIT,
+  AspectRatio.SQUARE,
+  AspectRatio.WIDE,
+]);
+const VALID_COLORWAYS = new Set(["snow", "neon"]);
+const VALID_FONT_STYLES = new Set([
+  FontStyle.CHILL,
+  FontStyle.OPPO,
+  FontStyle.SWEI,
+]);
+
+const normalizeConfig = (
+  raw: Partial<CardConfig>,
+  defaults: CardConfig,
+): CardConfig => {
+  const merged = { ...defaults, ...raw } as CardConfig;
+  return {
+    ...merged,
+    composition: VALID_COMPOSITIONS.has(merged.composition)
+      ? merged.composition
+      : defaults.composition,
+    aspectRatio: VALID_ASPECT_RATIOS.has(merged.aspectRatio)
+      ? merged.aspectRatio
+      : defaults.aspectRatio,
+    colorway: VALID_COLORWAYS.has(merged.colorway)
+      ? merged.colorway
+      : defaults.colorway,
+    fontStyle: VALID_FONT_STYLES.has(merged.fontStyle)
+      ? merged.fontStyle
+      : defaults.fontStyle,
+    fontSize:
+      typeof merged.fontSize === "number" &&
+      Number.isFinite(merged.fontSize) &&
+      merged.fontSize >= 0.7 &&
+      merged.fontSize <= 1.5
+        ? merged.fontSize
+        : defaults.fontSize,
+  };
+};
+
 const App: React.FC = () => {
   // --- State ---
   const [inputText, setInputText] = useState<string>(() => {
@@ -50,6 +93,20 @@ const App: React.FC = () => {
   const [zoomLevel, setZoomLevel] = useState(0.85);
   const [isPanelOpen, setIsPanelOpen] = useState(true); // Open by default for first visit
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [activeCardIndex, setActiveCardIndex] = useState<number | null>(null);
+
+  // Handle outside click to clear active card
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      // If clicking inside a toolbar or card, don't clear
+      if ((e.target as HTMLElement).closest('.card-container') || (e.target as HTMLElement).closest('.toolbar-container')) {
+        return;
+      }
+      setActiveCardIndex(null);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Track active card state for external toolbar
   const [activeEditConfig, setActiveEditConfig] = useState<ImageConfig | null>(
@@ -74,7 +131,9 @@ const App: React.FC = () => {
 
     try {
       const saved = localStorage.getItem("textcuts_config");
-      if (saved) return { ...defaultConfig, ...JSON.parse(saved) };
+      if (saved) {
+        return normalizeConfig(JSON.parse(saved), defaultConfig);
+      }
       return defaultConfig;
     } catch {
       return defaultConfig;
@@ -139,6 +198,7 @@ const App: React.FC = () => {
       cardRefs.current[editingIndex]?.save();
     }
     setEditingIndex(index);
+    setActiveCardIndex(index); // Ensure toolbar stays visible
     // Reset state for new edit
     setActiveEditConfig(null);
     setActiveHasImage(false);
@@ -386,6 +446,9 @@ const App: React.FC = () => {
                     Quantity produces quality
                     <span className="text-[#ea580c]">.</span>
                   </h1>
+                  <p className="mt-6 text-black/40 text-sm font-medium uppercase tracking-widest animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-200">
+                    Open settings to begin
+                  </p>
                 </div>
               </div>
             ) : (
@@ -397,7 +460,11 @@ const App: React.FC = () => {
                   >
                     {/* Card Container */}
                     <div
-                      className="transition-all duration-500 ease-out rounded-2xl shadow-sm bg-white mx-auto"
+                      className={`card-container transition-all duration-500 ease-out rounded-2xl shadow-sm bg-white mx-auto cursor-pointer ${activeCardIndex === idx ? 'ring-2 ring-black/5 shadow-lg' : ''}`}
+                      onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveCardIndex(idx);
+                      }}
                       style={{
                         ...getCardStyle(config.aspectRatio),
                         // @ts-ignore
@@ -427,205 +494,21 @@ const App: React.FC = () => {
                       />
                     </div>
                     {/* Card Actions */}
-                    <div className="mt-8 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0 w-full flex justify-center z-50">
-                      {editingIndex === idx ? (
-                        // --- UNIFIED EDITING TOOLBAR (Dieter Rams Style) ---
-                        <div className="h-10 bg-white rounded-full shadow-xl border border-black/5 flex items-center p-1 gap-1 animate-in fade-in slide-in-from-bottom-2">
-                          {/* Segment 1: Layout */}
-                          <button
-                            onClick={() =>
-                              cardRefs.current[idx]?.toggleLayout()
-                            }
-                            className="w-8 h-8 flex items-center justify-center rounded-full text-black/60 hover:text-black hover:bg-black/5 transition-all"
-                            title="Toggle Layout"
-                          >
-                            <LayoutTemplate size={14} />
-                          </button>
-
-                          <div className="w-px h-4 bg-black/10 mx-1"></div>
-
-                          {/* Highlight/Bold Button */}
-                          <button
-                            onMouseDown={(e) => e.preventDefault()}
-                            onClick={() => cardRefs.current[idx]?.toggleHighlight()}
-                            className="w-8 h-8 flex items-center justify-center rounded-full text-black/60 hover:text-black hover:bg-black/5 transition-all"
-                            title="Highlight Selection (Bold)"
-                          >
-                            <div className="font-serif font-black text-lg">B</div>
-                          </button>
-
-                          <div className="w-px h-4 bg-black/10 mx-1"></div>
-
-                          {/* Segment 2: Image Controls (Conditional) */}
-                          {activeHasImage && activeEditConfig && (
-                            <>
-                              {/* Position */}
-                              <button
-                                onClick={cyclePosition}
-                                className="w-8 h-8 flex items-center justify-center rounded-full text-black/60 hover:text-black hover:bg-black/5 transition-all"
-                                title="Change Position"
-                              >
-                                {getPositionIcon(activeEditConfig.position)}
-                              </button>
-
-                              {/* Scale Slider */}
-                              <div className="flex items-center gap-1 px-2 border-l border-r border-transparent hover:border-black/5 transition-colors">
-                                <ZoomIn size={12} className="text-black/40" />
-                                <input
-                                  type="range"
-                                  min="0.2"
-                                  max="3"
-                                  step="0.1"
-                                  value={activeEditConfig.scale}
-                                  onChange={(e) =>
-                                    updateScale(parseFloat(e.target.value))
-                                  }
-                                  className="w-16 h-1 bg-black/10 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-2.5 [&::-webkit-slider-thumb]:h-2.5 [&::-webkit-slider-thumb]:bg-black [&::-webkit-slider-thumb]:rounded-full hover:[&::-webkit-slider-thumb]:scale-125 transition-all"
-                                />
-                              </div>
-
-                              {/* Ratio/Size Controls */}
-                              <div className="flex items-center gap-1">
-                                {activeEditConfig.position === "left" ||
-                                activeEditConfig.position === "right" ? (
-                                  // For horizontal, only width ratio
-                                  <div
-                                    className="flex items-center gap-1 px-2"
-                                    title="Width"
-                                  >
-                                    <Scaling
-                                      size={12}
-                                      className="text-black/40"
-                                    />
-                                    <input
-                                      type="range"
-                                      min="0.1"
-                                      max="0.9"
-                                      step="0.05"
-                                      value={activeEditConfig.heightRatio}
-                                      onChange={(e) =>
-                                        updateHeightRatio(
-                                          parseFloat(e.target.value),
-                                        )
-                                      }
-                                      className="w-16 h-1 bg-black/10 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-2.5 [&::-webkit-slider-thumb]:h-2.5 [&::-webkit-slider-thumb]:bg-black [&::-webkit-slider-thumb]:rounded-full hover:[&::-webkit-slider-thumb]:scale-125 transition-all"
-                                    />
-                                  </div>
-                                ) : (
-                                  // For vertical, aspect ratio presets + height slider
-                                  <>
-                                    <button
-                                      onClick={cycleAspectRatio}
-                                      className="w-8 h-8 flex items-center justify-center rounded-full text-black/60 hover:text-black hover:bg-black/5 transition-all"
-                                      title="Aspect Ratio"
-                                    >
-                                      {getRatioIcon(
-                                        activeEditConfig.aspectRatio,
-                                      )}
-                                    </button>
-                                    {!activeEditConfig.aspectRatio && (
-                                      <div
-                                        className="flex items-center gap-1 px-2"
-                                        title="Height"
-                                      >
-                                        <Scaling
-                                          size={12}
-                                          className="text-black/40"
-                                        />
-                                        <input
-                                          type="range"
-                                          min="0.1"
-                                          max="0.9"
-                                          step="0.05"
-                                          value={activeEditConfig.heightRatio}
-                                          onChange={(e) =>
-                                            updateHeightRatio(
-                                              parseFloat(e.target.value),
-                                            )
-                                          }
-                                          className="w-16 h-1 bg-black/10 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-2.5 [&::-webkit-slider-thumb]:h-2.5 [&::-webkit-slider-thumb]:bg-black [&::-webkit-slider-thumb]:rounded-full hover:[&::-webkit-slider-thumb]:scale-125 transition-all"
-                                        />
-                                      </div>
-                                    )}
-                                  </>
-                                )}
-                              </div>
-
-                              <div className="w-px h-4 bg-black/10 mx-1"></div>
-
-                              {/* Trash */}
-                              <button
-                                onClick={removeImage}
-                                className="w-8 h-8 flex items-center justify-center rounded-full text-red-500 hover:text-red-600 hover:bg-red-50 transition-all"
-                                title="Remove Image"
-                              >
-                                <Trash2 size={14} />
-                              </button>
-
-                              <div className="w-px h-4 bg-black/10 mx-1"></div>
-                            </>
-                          )}
-
-                          {/* Segment 3: Actions */}
-                          <button
-                            onClick={() => handleCancelEdit(idx)}
-                            className="w-8 h-8 flex items-center justify-center rounded-full text-black/40 hover:text-red-600 hover:bg-red-50 transition-all"
-                            title="Cancel"
-                          >
-                            <X size={14} />
-                          </button>
-
-                          <button
-                            onClick={() => handleSaveEdit(idx)}
-                            className="h-8 px-3 ml-1 flex items-center justify-center gap-1.5 rounded-full bg-black text-white hover:bg-black/80 transition-all shadow-sm"
-                            title="Confirm"
-                          >
-                            <Check size={12} strokeWidth={3} />
-                            <span className="text-[10px] font-bold uppercase tracking-wider">
-                              Done
-                            </span>
-                          </button>
-                        </div>
-                      ) : (
-                        // --- VIEW MODE TOOLBAR ---
-                        <div className="h-10 bg-white rounded-full shadow-sm border border-black/5 flex items-center p-1 gap-1">
-                          <div className="flex items-center gap-1">
-                            <button
-                              onClick={() =>
-                                cardRefs.current[idx]?.toggleLayout()
-                              }
-                              className="w-8 h-8 flex items-center justify-center rounded-full text-black/60 hover:text-black hover:bg-black/5 transition-all"
-                              title="Toggle Layout"
-                            >
-                              <LayoutTemplate size={14} />
-                            </button>
-                            <button
-                              onClick={() => handleStartEdit(idx)}
-                              className="w-8 h-8 flex items-center justify-center rounded-full text-black/60 hover:text-black hover:bg-black/5 transition-all"
-                              title="Edit Content"
-                            >
-                              <Pencil size={14} />
-                            </button>
-                            <button
-                              onClick={() => triggerImageUpload(idx)}
-                              className="w-8 h-8 flex items-center justify-center rounded-full text-black/60 hover:text-black hover:bg-black/5 transition-all"
-                              title="Add/Replace Image"
-                            >
-                              <ImageIcon size={14} />
-                            </button>
-                          </div>
-
-                          <div className="w-px h-4 bg-black/10 mx-1"></div>
-
-                          <button
-                            onClick={() => handleDownload(idx)}
-                            className="w-8 h-8 flex items-center justify-center rounded-full text-black/60 hover:text-black hover:bg-black/5 transition-all"
-                            title="Download"
-                          >
-                            <ArrowDownToLine size={14} />
-                          </button>
-                        </div>
-                      )}
+                    <div className={`toolbar-container mt-8 transition-all duration-300 translate-y-2 w-full flex justify-center z-50 ${activeCardIndex === idx ? 'opacity-100 translate-y-0' : 'opacity-0 pointer-events-none'}`}>
+                      <Toolbar
+                        mode={editingIndex === idx ? 'edit' : 'view'}
+                        onToggleLayout={() => cardRefs.current[idx]?.toggleLayout()}
+                        onStartEdit={() => handleStartEdit(idx)}
+                        onTriggerImage={() => triggerImageUpload(idx)}
+                        onDownload={() => handleDownload(idx)}
+                        onCancelEdit={() => handleCancelEdit(idx)}
+                        onSaveEdit={() => handleSaveEdit(idx)}
+                        onToggleHighlight={() => cardRefs.current[idx]?.toggleHighlight()}
+                        hasImage={activeHasImage}
+                        imageConfig={activeEditConfig}
+                        onUpdateImageConfig={(updates) => cardRefs.current[idx]?.updateImageConfig(updates)}
+                        onRemoveImage={removeImage}
+                      />
                     </div>
                   </div>
                 ))}

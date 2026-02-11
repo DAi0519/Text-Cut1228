@@ -448,6 +448,7 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
     };
 
     let currentSizeRatio = editImageConfig.heightRatio;
+    const hasRatioPreset = !isHorizontal && !!editImageConfig.aspectRatio;
 
     // Apply aspect ratio preset logic ONLY for vertical layouts
     if (!isHorizontal && editImageConfig.aspectRatio) {
@@ -457,15 +458,27 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
     }
 
     const containerStyle: React.CSSProperties = {
-        height: (!forceCoverLayout && !isCover && !isHorizontal) ? `${currentSizeRatio * 100}%` : (isHorizontal ? '100%' : undefined),
-        width: isHorizontal ? `${currentSizeRatio * 100}%` : '100%'
+      width: isHorizontal ? `${currentSizeRatio * 100}%` : '100%',
+      // Always let vertical non-preset size follow heightRatio, including cover.
+      // Otherwise HEIGHT slider appears ineffective in cover layouts.
+      height: isHorizontal
+        ? '100%'
+        : hasRatioPreset
+          ? undefined
+          : `${currentSizeRatio * 100}%`,
     };
+
+    // If ratio preset is selected, always let aspect-ratio drive vertical sizing
+    // (including cover and non-cover) so the result is predictable.
+    if (hasRatioPreset) {
+      containerStyle.aspectRatio = editImageConfig.aspectRatio;
+    }
 
     // Removed Internal Controls Toolbar (moved to App.tsx)
 
     return (
       <div 
-        className={`relative group/image overflow-hidden shrink-0 transition-[height,width] duration-200 ease-out flex items-center justify-center ${className} ${isEditing ? 'cursor-move ring-2 ring-blue-500/20' : ''}`}
+        className={`relative group/image overflow-hidden shrink-0 transition-[height,width] duration-200 ease-out flex items-center justify-center ${className} ${isEditing ? 'cursor-move ring-2 ring-blue-500/20 shadow-lg z-10' : ''}`}
         style={containerStyle}
         onMouseDown={handleMouseDown}
       >
@@ -610,13 +623,16 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
              <div className={`w-full flex h-full ${isHorizontal ? 'flex-row items-center gap-6' : 'flex-col justify-center'} animate-in fade-in zoom-in-95 duration-500`}>
                
                {editImageConfig.position === 'left' && renderEditableImage("h-full rounded-sm")}
-               {editImageConfig.position === 'top' && renderEditableImage("w-full max-h-[40%] mb-8 rounded-sm", true)}
+               {editImageConfig.position === 'top' && renderEditableImage(
+                 "w-full mb-8 rounded-sm",
+                 true
+               )}
 
                <div className={`flex gap-6 md:gap-8 ${isHorizontal ? 'flex-1' : ''}`}>
                   <div className="w-1.5 shrink-0" style={{ backgroundColor: config.accentColor }}></div>
                   <div className="flex flex-col gap-6 w-full justify-center">
                      {isEditing ? (
-                        <textarea value={editTitle} onChange={(e) => setEditTitle(e.target.value)} placeholder="ENTER TITLE"
+                        <textarea ref={titleInputRef as React.RefObject<HTMLTextAreaElement>} value={editTitle} onChange={(e) => setEditTitle(e.target.value)} placeholder="ENTER TITLE"
                           className={`w-full bg-transparent text-5xl font-bold leading-none outline-none border-b border-dashed border-current/30 py-2 ${inputBgColor} ${getFontClass(config.fontStyle)}`} rows={3} style={{ color: config.textColor, resize: 'none' }} />
                      ) : (
                        <h2 className={`text-5xl font-bold leading-[1.05] text-left break-words whitespace-pre-wrap ${getFontClass(config.fontStyle)}`} style={{ color: config.textColor }}>
@@ -631,7 +647,10 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
                </div>
 
                {editImageConfig.position === 'right' && renderEditableImage("h-full rounded-sm")}
-               {editImageConfig.position === 'bottom' && renderEditableImage("w-full max-h-[40%] mt-8 rounded-sm", true)}
+               {editImageConfig.position === 'bottom' && renderEditableImage(
+                 "w-full mt-8 rounded-sm",
+                 true
+               )}
              </div>
           ) : (
             <>
@@ -742,7 +761,7 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
 
                  <div className={`flex-1 flex flex-col justify-center ${isHorizontal ? '' : 'mb-8'}`}>
                     {isEditing ? (
-                       <textarea value={editTitle} onChange={(e) => setEditTitle(e.target.value)} 
+                       <textarea ref={titleInputRef as React.RefObject<HTMLTextAreaElement>} value={editTitle} onChange={(e) => setEditTitle(e.target.value)} 
                          className={`w-full bg-transparent text-6xl font-bold uppercase tracking-tighter outline-none ${inputBgColor} leading-[1.0]`} rows={4} style={{ color: config.textColor, resize: 'none' }} />
                     ) : (
                       <h1 className="text-6xl font-bold uppercase tracking-tighter leading-[1.0] break-words hyphens-auto whitespace-pre-wrap">

@@ -63,14 +63,14 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
       <div className="flex shrink-0 border-b border-black/5 bg-white p-2 gap-2">
         <button 
           onClick={() => setActiveTab('text')}
-          className={`flex-1 h-10 rounded-lg flex items-center justify-center gap-2 text-[10px] font-bold uppercase tracking-[0.15em] transition-all duration-300 ${activeTab === 'text' ? 'bg-black text-white shadow-md' : 'text-black/40 hover:text-black hover:bg-black/5'}`}
+          className={`flex-1 h-10 rounded-lg flex items-center justify-center gap-2 text-[10px] font-bold uppercase tracking-[0.15em] transition-all duration-300 ${activeTab === 'text' ? 'bg-black text-white shadow-md' : 'text-black/60 hover:text-black hover:bg-black/5'}`}
         >
           <FileText size={14} />
           <span>Source</span>
         </button>
         <button 
           onClick={() => setActiveTab('style')}
-          className={`flex-1 h-10 rounded-lg flex items-center justify-center gap-2 text-[10px] font-bold uppercase tracking-[0.15em] transition-all duration-300 ${activeTab === 'style' ? 'bg-black text-white shadow-md' : 'text-black/40 hover:text-black hover:bg-black/5'}`}
+          className={`flex-1 h-10 rounded-lg flex items-center justify-center gap-2 text-[10px] font-bold uppercase tracking-[0.15em] transition-all duration-300 ${activeTab === 'style' ? 'bg-black text-white shadow-md' : 'text-black/60 hover:text-black hover:bg-black/5'}`}
         >
           <SlidersHorizontal size={14} />
           <span>System</span>
@@ -85,7 +85,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
              {/* Textarea */}
              <div className="space-y-2">
-                <div className="flex items-center gap-2 opacity-40">
+                <div className="flex items-center gap-2 opacity-60">
                   <AlignLeft size={12} />
                   <span className="text-[10px] font-bold uppercase tracking-wider">Raw Content</span>
                 </div>
@@ -100,7 +100,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
              {/* Metadata Fields */}
              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-[10px] font-bold uppercase tracking-wider opacity-40 block">Project Title</label>
+                  <label className="text-[10px] font-bold uppercase tracking-wider opacity-60 block">Project Title</label>
                   <input 
                     type="text" 
                     value={config.title}
@@ -110,7 +110,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-bold uppercase tracking-wider opacity-40 block">Author</label>
+                  <label className="text-[10px] font-bold uppercase tracking-wider opacity-60 block">Author</label>
                   <input 
                     type="text" 
                     value={config.authorName}
@@ -128,8 +128,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           <div className="flex flex-col gap-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
             
             {/* Colorways */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 opacity-40">
+            <div className="space-y-5">
+              <div className="flex items-center gap-2 opacity-60">
                  <Grid size={12} />
                  <span className="text-[10px] font-bold uppercase tracking-wider">Color System</span>
               </div>
@@ -154,7 +154,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 <div className="h-12 border border-black/5 rounded-lg bg-[#fafafa] hover:bg-white hover:border-black/20 transition-all flex items-center justify-center gap-2 group focus-within:ring-1 focus-within:ring-black/5 focus-within:border-black/20 focus-within:bg-white relative overflow-hidden">
                   <div className="w-2.5 h-2.5 rounded-full shadow-sm shrink-0 border border-black/10" style={{ backgroundColor: config.accentColor }}></div>
                   <div className="flex items-center relative">
-                    <span className="text-[10px] font-bold text-black/40 mr-0.5 select-none">#</span>
+                    <span className="text-[10px] font-bold text-black/60 mr-0.5 select-none">#</span>
                     <input 
                       type="text" 
                       value={config.accentColor.replace('#', '')}
@@ -164,7 +164,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                            updateConfig('accentColor', '#' + val);
                         }
                       }}
-                      className="w-[6ch] bg-transparent text-[10px] font-mono font-bold uppercase text-black/80 focus:outline-none tracking-wider placeholder:text-black/20"
+                      className="w-[7ch] bg-transparent text-[10px] font-mono font-bold uppercase text-black/80 focus:outline-none tracking-wider placeholder:text-black/20"
                       placeholder="HEX"
                       maxLength={6}
                     />
@@ -176,8 +176,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
             <div className="h-px bg-black/5 w-full"></div>
 
              {/* Composition */}
-             <div className="space-y-3">
-              <div className="flex items-center gap-2 opacity-40">
+             <div className="space-y-5">
+              <div className="flex items-center gap-2 opacity-60">
                  <Layout size={12} />
                  <span className="text-[10px] font-bold uppercase tracking-wider">Layout Theme</span>
               </div>
@@ -200,8 +200,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
             </div>
 
             {/* Typography */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 opacity-40">
+            <div className="space-y-5">
+              <div className="flex items-center gap-2 opacity-60">
                  <Type size={12} />
                  <span className="text-[10px] font-bold uppercase tracking-wider">Typeface</span>
               </div>
@@ -226,8 +226,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
             {/* Controls Row */}
             <div className="grid grid-cols-2 gap-6">
                {/* Aspect Ratio */}
-               <div className="space-y-3">
-                 <div className="flex items-center gap-2 opacity-40">
+               <div className="space-y-5">
+                 <div className="flex items-center gap-2 opacity-60">
                     <Crop size={12} />
                     <span className="text-[10px] font-bold uppercase tracking-wider">Format</span>
                  </div>
@@ -236,7 +236,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                      <button
                        key={ratio}
                        onClick={() => updateConfig('aspectRatio', ratio)}
-                       className={`flex-1 h-full rounded-sm text-[10px] font-mono transition-all flex items-center justify-center ${config.aspectRatio === ratio ? 'bg-white text-black shadow-sm' : 'text-black/40 hover:text-black'}`}
+                       className={`flex-1 h-full rounded-sm text-[10px] font-mono transition-all flex items-center justify-center ${config.aspectRatio === ratio ? 'bg-white text-black shadow-sm' : 'text-black/60 hover:text-black'}`}
                      >
                        {ratio}
                      </button>
@@ -245,8 +245,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                </div>
 
                {/* Font Size */}
-               <div className="space-y-3">
-                 <div className="flex items-center gap-2 opacity-40">
+               <div className="space-y-5">
+                 <div className="flex items-center gap-2 opacity-60">
                     <Scaling size={12} />
                     <span className="text-[10px] font-bold uppercase tracking-wider">Scale: {config.fontSize.toFixed(2)}</span>
                  </div>
