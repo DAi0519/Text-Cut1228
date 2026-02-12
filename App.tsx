@@ -1,6 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from "react";
-import { ControlPanel } from "./components/ControlPanel";
-import { Toolbar } from "./components/Toolbar";
+import { Console } from "./components/Console";
 import { Card, CardHandle } from "./components/Card";
 import {
   CardConfig,
@@ -10,31 +9,8 @@ import {
   ImageConfig,
 } from "./types";
 import { splitTextIntoCards } from "./services/geminiService";
-import {
-  Download,
-  Plus,
-  Minus,
-  Settings2,
-  Play,
-  ArrowDownToLine,
-  X,
-  Pencil,
-  LayoutTemplate,
-  Check,
-  Image as ImageIcon,
-  ArrowUp,
-  ArrowDown,
-  ArrowLeft,
-  ArrowRight,
-  Square,
-  RectangleHorizontal,
-  RectangleVertical,
-  ScanLine,
-  ZoomIn,
-  Scaling,
-  Trash2,
-} from "lucide-react";
 import { toPng } from "html-to-image";
+import { Sparkles, ArrowRight } from "lucide-react";
 
 const VALID_COMPOSITIONS = new Set(["classic", "technical"]);
 const VALID_ASPECT_RATIOS = new Set([
@@ -91,28 +67,30 @@ const App: React.FC = () => {
   const [cards, setCards] = useState<CardSegment[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(0.85);
-  const [isPanelOpen, setIsPanelOpen] = useState(true); // Open by default for first visit
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [activeCardIndex, setActiveCardIndex] = useState<number | null>(null);
-
-  // Handle outside click to clear active card
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      // If clicking inside a toolbar or card, don't clear
-      if ((e.target as HTMLElement).closest('.card-container') || (e.target as HTMLElement).closest('.toolbar-container')) {
-        return;
-      }
-      setActiveCardIndex(null);
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
+  
   // Track active card state for external toolbar
   const [activeEditConfig, setActiveEditConfig] = useState<ImageConfig | null>(
     null,
   );
   const [activeHasImage, setActiveHasImage] = useState(false);
+
+  // Sync editing index with active card index
+  useEffect(() => {
+    if (activeCardIndex !== null && activeCardIndex !== editingIndex) {
+       // Save previous if any
+       if (editingIndex !== null) {
+          cardRefs.current[editingIndex]?.save();
+       }
+       // Start editing new
+       setEditingIndex(activeCardIndex);
+       // Small delay to let ref update
+       setTimeout(() => {
+          cardRefs.current[activeCardIndex]?.startEdit();
+       }, 50);
+    }
+  }, [activeCardIndex, editingIndex]);
 
   const [config, setConfig] = useState<CardConfig>(() => {
     const defaultConfig = {
@@ -143,6 +121,8 @@ const App: React.FC = () => {
   // --- Image Upload Refs ---
   const fileInputRef = useRef<HTMLInputElement>(null);
   const activeCardIndexForUpload = useRef<number | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const cardRefs = useRef<(CardHandle | null)[]>([]);
 
   // --- Effects ---
   useEffect(() => {
@@ -152,20 +132,84 @@ const App: React.FC = () => {
     localStorage.setItem("textcuts_config", JSON.stringify(config));
   }, [config]);
 
+  // --- Scroll & Active Card Detection ---
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container || cards.length === 0) return;
 
+    const handleScroll = () => {
+      const center = container.scrollLeft + container.clientWidth / 2;
+      let minDistance = Infinity;
+      let closestIndex = 0;
 
-  const cardRefs = useRef<(CardHandle | null)[]>([]);
+      // Find card closest to center
+      const cardElements = container.querySelectorAll('.card-wrapper');
+      if (cardElements.length === 0) return;
+
+      cardElements.forEach((el, idx) => {
+        const rect = (el as HTMLElement).offsetLeft + (el as HTMLElement).offsetWidth / 2;
+        const distance = Math.abs(center - rect);
+        if (distance < minDistance) {
+          minDistance = distance;
+          closestIndex = idx;
+        }
+      });
+      
+      if (closestIndex !== activeCardIndex) {
+         if (activeCardIndex !== null) {
+            // Save the PREVIOUS card before switching
+            cardRefs.current[activeCardIndex]?.save();
+         }
+         
+         setActiveCardIndex(closestIndex);
+         setEditingIndex(closestIndex);
+         
+         // Start editing the NEW card
+         setTimeout(() => {
+            cardRefs.current[closestIndex]?.startEdit();
+         }, 50);
+      }
+    };
+    
+    // Initial call
+    // If we have cards but no active index, default to 0
+    if (activeCardIndex === null && cards.length > 0) {
+       setActiveCardIndex(0);
+       setEditingIndex(0);
+       setTimeout(() => cardRefs.current[0]?.startEdit(), 50);
+    }
+
+    container.addEventListener('scroll', handleScroll, { passive: true });
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, [cards.length, activeCardIndex]);
 
   // --- Handlers ---
   const handleProcess = async () => {
     if (!inputText) return;
     setIsProcessing(true);
-    setIsPanelOpen(false);
+    // Clear any previous edit state
     setEditingIndex(null);
+    setActiveCardIndex(null);
+    setActiveEditConfig(null);
+    setActiveHasImage(false);
 
     try {
       const segments = await splitTextIntoCards(inputText);
       setCards(segments);
+      // Reset scroll
+      if (scrollContainerRef.current) {
+        scrollContainerRef.current.scrollLeft = 0;
+      }
+      
+      // Auto-select first card
+      setTimeout(() => {
+         if (segments.length > 0) {
+            setActiveCardIndex(0);
+            setEditingIndex(0);
+            cardRefs.current[0]?.startEdit();
+         }
+      }, 100);
+
     } catch (error) {
       alert("Failed to process text.");
     } finally {
@@ -194,22 +238,30 @@ const App: React.FC = () => {
   };
 
   const handleStartEdit = (index: number) => {
-    if (editingIndex !== null && editingIndex !== index) {
+    // If we're already editing this card, do nothing
+    if (editingIndex === index) return;
+    
+    // Save previous
+    if (editingIndex !== null) {
       cardRefs.current[editingIndex]?.save();
     }
+    
     setEditingIndex(index);
-    setActiveCardIndex(index); // Ensure toolbar stays visible
+    setActiveCardIndex(index); // Ensure active matches edit
+    
     // Reset state for new edit
     setActiveEditConfig(null);
     setActiveHasImage(false);
+    
+    // Trigger edit on card component
     cardRefs.current[index]?.startEdit();
   };
 
   const handleSaveEdit = (index: number) => {
+    // Only save content, don't exit edit mode completely if it's the active card
     cardRefs.current[index]?.save();
-    setEditingIndex(null);
-    setActiveEditConfig(null);
   };
+
 
   const handleCancelEdit = (index: number) => {
     cardRefs.current[index]?.cancel();
@@ -222,80 +274,10 @@ const App: React.FC = () => {
     hasImage: boolean,
     config: ImageConfig,
   ) => {
-    if (index === editingIndex) {
+    // Always update if it's the active card
+    if (index === activeCardIndex) {
       setActiveHasImage(hasImage);
       setActiveEditConfig(config);
-    }
-  };
-
-  // --- External Toolbar Handlers ---
-  const cyclePosition = () => {
-    if (editingIndex === null || !activeEditConfig) return;
-    const order: ImageConfig["position"][] = ["top", "bottom", "left", "right"];
-    const currentIdx = order.indexOf(activeEditConfig.position);
-    const nextPos = order[(currentIdx + 1) % order.length];
-    cardRefs.current[editingIndex]?.updateImageConfig({ position: nextPos });
-  };
-
-  const cycleAspectRatio = () => {
-    if (editingIndex === null || !activeEditConfig) return;
-    const order: (ImageConfig["aspectRatio"] | undefined)[] = [
-      undefined,
-      "1:1",
-      "4:3",
-      "16:9",
-      "3:4",
-    ];
-    const currentIdx = order.indexOf(activeEditConfig.aspectRatio);
-    cardRefs.current[editingIndex]?.updateImageConfig({
-      aspectRatio: order[(currentIdx + 1) % order.length],
-    });
-  };
-
-  const updateScale = (val: number) => {
-    if (editingIndex !== null)
-      cardRefs.current[editingIndex]?.updateImageConfig({ scale: val });
-  };
-
-  const updateHeightRatio = (val: number) => {
-    if (editingIndex !== null)
-      cardRefs.current[editingIndex]?.updateImageConfig({
-        heightRatio: val,
-        aspectRatio: undefined,
-      });
-  };
-
-  const removeImage = () => {
-    if (editingIndex !== null) cardRefs.current[editingIndex]?.removeImage();
-  };
-
-  // --- Icons helper ---
-  const getPositionIcon = (pos: string) => {
-    switch (pos) {
-      case "top":
-        return <ArrowUp size={14} />;
-      case "bottom":
-        return <ArrowDown size={14} />;
-      case "left":
-        return <ArrowLeft size={14} />;
-      case "right":
-        return <ArrowRight size={14} />;
-      default:
-        return <ArrowUp size={14} />;
-    }
-  };
-
-  const getRatioIcon = (ratio?: string) => {
-    switch (ratio) {
-      case "1:1":
-        return <Square size={14} />;
-      case "4:3":
-      case "16:9":
-        return <RectangleHorizontal size={14} />;
-      case "3:4":
-        return <RectangleVertical size={14} />;
-      default:
-        return <ScanLine size={14} />;
     }
   };
 
@@ -319,7 +301,16 @@ const App: React.FC = () => {
           };
           return newCards;
         });
-        activeCardIndexForUpload.current = null;
+        
+        // Auto-switch to editor tab/mode if needed, but since we are always editing,
+        // just ensure the state is refreshed
+        setTimeout(() => {
+            if (activeCardIndexForUpload.current === activeCardIndex) {
+                 // Force refresh of edit state
+                 cardRefs.current[activeCardIndex]?.startEdit(); 
+            }
+            activeCardIndexForUpload.current = null;
+        }, 100);
       };
       reader.readAsDataURL(file);
     }
@@ -329,10 +320,15 @@ const App: React.FC = () => {
   const handleDownload = useCallback(async (index: number) => {
     const handle = cardRefs.current[index];
     if (!handle || !handle.element) return;
+    
+    // Save state to render final view
+    handle.save();
+
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
     const el = handle.element;
 
     try {
-      await new Promise((resolve) => setTimeout(resolve, 50));
       const width = el.offsetWidth;
       const height = el.offsetHeight;
 
@@ -356,6 +352,9 @@ const App: React.FC = () => {
           ) {
             return false;
           }
+          if (node instanceof HTMLElement && node.classList.contains('ui-overlay')) {
+             return false;
+          }
           return true;
         },
         fetchRequestInit: {
@@ -368,45 +367,107 @@ const App: React.FC = () => {
       link.click();
     } catch (err) {
       console.error("Download failed", err);
+    } finally {
+        // Restore edit mode if active
+        // Note: Using a ref to access current active index avoids stale closure issues
+        // We'll rely on the parent component (App) passing the correct state or logic
+        // But here we are inside App.tsx. However, activeCardIndex is from closure.
+        // We need to use the ref or ensure dependencies are correct.
+        // Since we can't easily access the LATEST state in a callback without re-creating it on every scroll...
+        // Let's use a ref for activeCardIndex?
+        // Actually, we can just check if the current editingIndex matches?
+        // Or better, just restore it blindly? No, that would activate non-active cards.
+        // We'll check if index === activeCardIndexRef.current (need to add ref)
+        // For now, let's just use the prop.
+        if (index === activeCardIndex) {
+            handle.startEdit();
+        }
     }
-  }, []);
+  }, [activeCardIndex]);
 
   const handleDownloadAll = useCallback(async () => {
-    for (let i = 0; i < cards.length; i++) {
-      await handleDownload(i);
-      await new Promise((r) => setTimeout(r, 200));
+    // If there are cards
+    if (cards.length === 0) return;
+    
+    // Deactivate editing for clean screenshots
+    const previousActive = activeCardIndex;
+    if (previousActive !== null) {
+       cardRefs.current[previousActive]?.save();
     }
-  }, [cards.length, handleDownload]);
+    
+    // We intentionally don't clear setEditingIndex immediately to avoid UI jumps, 
+    // but we saved the content.
+    
+    // We iterate manually
+    for (let i = 0; i < cards.length; i++) {
+       const handle = cardRefs.current[i];
+       if (!handle || !handle.element) continue;
+       
+       // Force save
+       handle.save();
+       // Wait for render
+       await new Promise(r => setTimeout(r, 100));
+       
+       try {
+           const el = handle.element;
+           const width = el.offsetWidth;
+           const height = el.offsetHeight;
+           const dataUrl = await toPng(el, {
+              cacheBust: true, pixelRatio: 3, width, height,
+              style: { width: `${width}px`, height: `${height}px`, zoom: "1", transform: "none", margin: "0", maxHeight: "none" },
+              filter: (node) => {
+                 if (node.tagName === "LINK" && (node as HTMLLinkElement).href.includes("lxgw-zhi-song-screen-web")) return false;
+                 // Exclude internal UI overlays if any remain
+                 if (node instanceof HTMLElement && node.classList.contains('ui-overlay')) return false;
+                 return true;
+              },
+              fetchRequestInit: { mode: "cors" },
+           });
+           const link = document.createElement("a");
+           link.download = `card-${String(i + 1).padStart(2, "0")}.png`;
+           link.href = dataUrl;
+           link.click();
+       } catch (e) { console.error(e); }
+       
+       await new Promise(r => setTimeout(r, 200));
+    }
+    
+    // Restore editing on the active card
+    if (previousActive !== null) {
+       // Re-trigger edit
+       cardRefs.current[previousActive]?.startEdit();
+    }
+    
+  }, [cards.length, activeCardIndex]);
 
   const hasContent = cards.length > 0;
 
   const getCardStyle = (ratio: AspectRatio) => {
     const ratioValue = ratio.replace(':', '/');
-    let maxWidth;
+    let width = "380px";
     
     switch (ratio) {
       case AspectRatio.WIDE:
-        maxWidth = "800px";
+        width = "600px";
         break;
       case AspectRatio.SQUARE:
-        maxWidth = "520px";
+        width = "480px";
         break;
       case AspectRatio.PORTRAIT:
       default:
-        maxWidth = "380px";
+        width = "380px";
         break;
     }
 
     return {
-      width: "100%",
-      maxWidth,
+      width,
       aspectRatio: ratioValue,
     };
   };
 
   // --- Render ---
   return (
-    <div className="relative h-screen w-full overflow-hidden bg-white font-sans text-[#18181b]">
+    <div className="relative h-screen w-full overflow-hidden bg-[#fafafa] font-sans text-[#18181b] flex flex-col">
       {/* Hidden File Input */}
       <input
         type="file"
@@ -416,60 +477,110 @@ const App: React.FC = () => {
         className="hidden"
       />
 
-      {/* Background Texture */}
-      <div
-        className="absolute inset-0 pointer-events-none opacity-20 mix-blend-multiply"
-        style={{
-          backgroundImage: `
-               linear-gradient(to right, rgba(0,0,0,0.05) 1px, transparent 1px),
-               linear-gradient(to bottom, rgba(0,0,0,0.05) 1px, transparent 1px)
-             `,
-          backgroundSize: "20px 20px",
-        }}
-      ></div>
-      <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_center,transparent_0%,rgba(0,0,0,0.03)_100%)]"></div>
-
       {/* Main Content Stage */}
-      <main className="absolute inset-0 flex flex-col items-center">
-        <div className="w-full h-full overflow-y-auto custom-scrollbar scroll-smooth">
-          <div className="flex flex-col items-center py-20 px-4 min-h-full">
-            {!hasContent ? (
-              <div
-                className="flex-1 flex flex-col items-center justify-start select-none transition-all duration-700 ease-[cubic-bezier(0.4,0,0.2,1)]"
-                style={{
-                  paddingTop: isPanelOpen ? "clamp(32px, 12vh, 140px)" : "42vh",
-                  paddingBottom: isPanelOpen ? "0px" : "0px",
-                }}
-              >
-                <div className="flex flex-col items-center animate-in fade-in zoom-in-95 duration-1000">
-                  <h1 className="text-5xl md:text-7xl font-bold tracking-tighter text-[#18181b] text-center max-w-4xl leading-none">
-                    Quantity produces quality
-                    <span className="text-[#ea580c]">.</span>
-                  </h1>
-                  <p className="mt-6 text-black/40 text-sm font-medium uppercase tracking-widest animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-200">
-                    Open settings to begin
-                  </p>
+      <div className={`flex-1 relative overflow-hidden transition-all duration-700 ${!hasContent ? 'bg-white' : 'bg-[#e4e4e7]/30'}`}>
+        {/* Background Texture */}
+        <div
+          className="absolute inset-0 pointer-events-none opacity-20 mix-blend-multiply"
+          style={{
+            backgroundImage: `
+                 linear-gradient(to right, rgba(0,0,0,0.05) 1px, transparent 1px),
+                 linear-gradient(to bottom, rgba(0,0,0,0.05) 1px, transparent 1px)
+               `,
+            backgroundSize: "20px 20px",
+          }}
+        ></div>
+
+        {!hasContent ? (
+          // --- HERO INPUT MODE ---
+          <div className="absolute inset-0 flex flex-col items-center justify-center p-6 animate-in fade-in zoom-in-95 duration-700">
+            <div className="w-full max-w-2xl flex flex-col items-center gap-10">
+              
+              {/* Slogan */}
+              <div className="text-center space-y-4">
+                <h1 className="text-5xl md:text-7xl font-bold tracking-tighter text-[#18181b] leading-none">
+                  Quantity produces quality
+                  <span className="text-[#ea580c]">.</span>
+                </h1>
+                <p className="text-lg text-black/40 font-medium tracking-wide">
+                  Turn your thoughts into elegant cards instantly.
+                </p>
+              </div>
+
+              {/* Hero Input Area */}
+              <div className="w-full relative group">
+                <div className="absolute -inset-1 bg-gradient-to-r from-orange-100 to-orange-50 rounded-2xl blur opacity-20 group-hover:opacity-40 transition duration-500"></div>
+                <div className="relative bg-white rounded-xl shadow-2xl shadow-black/5 border border-black/5 overflow-hidden flex flex-col transition-all duration-300 group-hover:shadow-orange-500/10 group-hover:border-orange-500/20">
+                  <textarea
+                    value={inputText}
+                    onChange={(e) => setInputText(e.target.value)}
+                    placeholder="Paste your article or notes here..."
+                    className="w-full h-40 p-6 text-lg text-black/80 placeholder:text-black/20 outline-none resize-none bg-transparent leading-relaxed"
+                    spellCheck={false}
+                  />
+                  
+                  {/* Action Bar */}
+                  <div className="h-16 border-t border-black/5 bg-gray-50/50 flex items-center justify-between px-4">
+                     <div className="flex items-center gap-2 text-xs font-medium text-black/30 px-2">
+                        <Sparkles size={14} />
+                        <span>AI-Powered Formatting</span>
+                     </div>
+                     <button
+                        onClick={handleProcess}
+                        disabled={!inputText.trim() || isProcessing}
+                        className={`
+                          h-10 px-6 rounded-lg flex items-center gap-2 transition-all duration-300 font-bold text-sm tracking-wide shadow-lg
+                          ${!inputText.trim() 
+                            ? "bg-gray-200 text-gray-400 cursor-not-allowed shadow-none" 
+                            : "bg-[#ea580c] hover:bg-[#c2410c] text-white hover:shadow-orange-500/25 active:scale-95 transform"
+                          }
+                        `}
+                     >
+                        {isProcessing ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                            <span>Processing...</span>
+                          </>
+                        ) : (
+                          <>
+                            <span>Generate Cards</span>
+                            <ArrowRight size={16} />
+                          </>
+                        )}
+                     </button>
+                  </div>
                 </div>
               </div>
-            ) : (
-              <div className="flex flex-col gap-20 pb-48 animate-in fade-in duration-700 w-full items-center">
+
+            </div>
+          </div>
+        ) : (
+          // --- RESULT DECK MODE ---
+          <div 
+             ref={scrollContainerRef}
+             className="absolute inset-0 flex items-center overflow-x-auto snap-x snap-mandatory px-[50vw] scroll-smooth custom-scrollbar animate-in fade-in duration-1000"
+             style={{ paddingLeft: 'calc(50vw - 190px)', paddingRight: 'calc(50vw - 190px)' }}
+          >
+             <div className="flex items-center gap-12 py-20">
                 {cards.map((segment, idx) => (
                   <div
                     key={idx}
-                    className="flex flex-col items-center group relative w-full max-w-full px-4 md:px-0"
+                    className={`card-wrapper flex-shrink-0 snap-center transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${activeCardIndex === idx ? 'scale-100 opacity-100 z-10' : 'scale-90 opacity-40 z-0 blur-[1px]'}`}
+                    onClick={() => {
+                       setActiveCardIndex(idx);
+                       scrollContainerRef.current?.scrollTo({
+                          left: (scrollContainerRef.current?.children[0]?.children[idx] as HTMLElement)?.offsetLeft - scrollContainerRef.current?.clientWidth / 2 + (scrollContainerRef.current?.children[0]?.children[idx] as HTMLElement)?.offsetWidth / 2,
+                          behavior: 'smooth'
+                       });
+                    }}
                   >
-                    {/* Card Container */}
                     <div
-                      className={`card-container transition-all duration-500 ease-out rounded-2xl shadow-sm bg-white mx-auto cursor-pointer ${activeCardIndex === idx ? 'ring-2 ring-black/5 shadow-lg' : ''}`}
-                      onClick={(e) => {
-                          e.stopPropagation();
-                          setActiveCardIndex(idx);
-                      }}
+                      className={`relative rounded-2xl shadow-xl bg-white mx-auto overflow-hidden ring-1 ring-black/5`}
                       style={{
                         ...getCardStyle(config.aspectRatio),
                         // @ts-ignore
                         zoom: zoomLevel,
-                        transformOrigin: "center top",
+                        transformOrigin: "center center",
                       }}
                     >
                       <Card
@@ -493,126 +604,46 @@ const App: React.FC = () => {
                         }
                       />
                     </div>
-                    {/* Card Actions */}
-                    <div className={`toolbar-container mt-8 transition-all duration-300 translate-y-2 w-full flex justify-center z-50 ${activeCardIndex === idx ? 'opacity-100 translate-y-0' : 'opacity-0 pointer-events-none'}`}>
-                      <Toolbar
-                        mode={editingIndex === idx ? 'edit' : 'view'}
-                        onToggleLayout={() => cardRefs.current[idx]?.toggleLayout()}
-                        onStartEdit={() => handleStartEdit(idx)}
-                        onTriggerImage={() => triggerImageUpload(idx)}
-                        onDownload={() => handleDownload(idx)}
-                        onCancelEdit={() => handleCancelEdit(idx)}
-                        onSaveEdit={() => handleSaveEdit(idx)}
-                        onToggleHighlight={() => cardRefs.current[idx]?.toggleHighlight()}
-                        hasImage={activeHasImage}
-                        imageConfig={activeEditConfig}
-                        onUpdateImageConfig={(updates) => cardRefs.current[idx]?.updateImageConfig(updates)}
-                        onRemoveImage={removeImage}
-                      />
-                    </div>
                   </div>
                 ))}
-              </div>
-            )}
+             </div>
           </div>
-        </div>
-      </main>
+        )}
+      </div>
 
-      {/* Protective Gradient Overlay */}
-      <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-white via-white/80 to-transparent z-[60] pointer-events-auto" />
-
-      {/* --- FLOATING CONTROL DECK --- */}
-      <div className="absolute bottom-10 left-0 right-0 flex justify-center z-[100]">
-        <div className="relative">
-          <ControlPanel
+      {/* Console (Bottom Panel) - Only visible when content exists */}
+      {hasContent && (
+        <div className="animate-in slide-in-from-bottom-full duration-700 ease-out">
+          <Console
             inputText={inputText}
             setInputText={setInputText}
             config={config}
             setConfig={setConfig}
-            isVisible={isPanelOpen}
+            isProcessing={isProcessing}
+            onProcess={handleProcess}
+            onDownloadAll={handleDownloadAll}
+            hasContent={hasContent}
+            zoomLevel={zoomLevel}
+            setZoomLevel={setZoomLevel}
+            
+            activeCardIndex={activeCardIndex}
+            editingIndex={editingIndex}
+            
+            onToggleLayout={() => activeCardIndex !== null && cardRefs.current[activeCardIndex]?.toggleLayout()}
+            onStartEdit={() => activeCardIndex !== null && handleStartEdit(activeCardIndex)}
+            onSaveEdit={() => activeCardIndex !== null && handleSaveEdit(activeCardIndex)}
+            onCancelEdit={() => activeCardIndex !== null && handleCancelEdit(activeCardIndex)}
+            onTriggerImage={() => activeCardIndex !== null && triggerImageUpload(activeCardIndex)}
+            onDownload={() => activeCardIndex !== null && handleDownload(activeCardIndex)}
+            onToggleHighlight={() => activeCardIndex !== null && cardRefs.current[activeCardIndex]?.toggleHighlight()}
+            
+            activeHasImage={activeHasImage}
+            activeImageConfig={activeEditConfig}
+            onUpdateImageConfig={(updates) => activeCardIndex !== null && cardRefs.current[activeCardIndex]?.updateImageConfig(updates)}
+            onRemoveImage={() => activeCardIndex !== null && cardRefs.current[activeCardIndex]?.removeImage()}
           />
-
-          {/* Main Controller Bar */}
-          <div
-            className="
-            flex items-center gap-2 p-2 pl-3
-            bg-white border border-black/10 rounded-full 
-            shadow-[0_10px_30px_rgba(0,0,0,0.08)]
-            backdrop-blur-xl
-            transition-transform duration-300 hover:scale-[1.005]
-          "
-          >
-            <div className="flex items-center gap-1 px-2 border-r border-black/5 mr-1">
-              <button
-                onClick={() => setZoomLevel((z) => Math.max(0.4, z - 0.05))}
-                className="p-2 text-black/40 hover:text-black transition-colors rounded-full hover:bg-black/5"
-              >
-                <Minus size={14} />
-              </button>
-              <div className="w-8 text-center font-mono text-[10px] text-black/60 select-none">
-                {(zoomLevel * 100).toFixed(0)}%
-              </div>
-              <button
-                onClick={() => setZoomLevel((z) => Math.min(1.5, z + 0.05))}
-                className="p-2 text-black/40 hover:text-black transition-colors rounded-full hover:bg-black/5"
-              >
-                <Plus size={14} />
-              </button>
-            </div>
-
-            <button
-              onClick={() => setIsPanelOpen(!isPanelOpen)}
-              className={`
-                 h-10 px-6 rounded-full flex items-center gap-2 transition-all duration-300
-                 text-[10px] font-bold uppercase tracking-[0.15em]
-                 ${
-                   isPanelOpen
-                     ? "bg-black text-white shadow-lg"
-                     : "bg-transparent text-black/60 hover:bg-black/5"
-                 }
-               `}
-            >
-              {isPanelOpen ? <X size={14} /> : <Settings2 size={14} />}
-              <span className="hidden sm:inline">
-                {isPanelOpen ? "Close Panel" : "Settings"}
-              </span>
-            </button>
-
-            <div className="pl-2 flex items-center gap-2">
-              {hasContent && (
-                <button
-                  onClick={handleDownloadAll}
-                  className="p-3 rounded-full text-black/60 hover:text-black hover:bg-black/5 transition-colors"
-                  title="Export All"
-                >
-                  <Download size={16} strokeWidth={2} />
-                </button>
-              )}
-
-              <button
-                onClick={handleProcess}
-                disabled={!inputText.trim() || isProcessing}
-                className={`
-                    h-10 px-6 rounded-full flex items-center gap-2 transition-all duration-200
-                    text-[10px] font-bold uppercase tracking-[0.15em] shadow-lg
-                    ${
-                      !inputText.trim()
-                        ? "bg-[#e4e4e7] text-black/20 cursor-not-allowed shadow-none"
-                        : "bg-[#ea580c] hover:bg-[#c2410c] text-white hover:shadow-orange-500/20 active:translate-y-0.5"
-                    }
-                  `}
-              >
-                {isProcessing ? (
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                ) : (
-                  <Play size={12} fill="currentColor" />
-                )}
-                <span>{hasContent ? "Rerun" : "Generate"}</span>
-              </button>
-            </div>
-          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };
