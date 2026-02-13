@@ -23,6 +23,7 @@ export interface CardHandle {
   startEdit: () => void;
   save: () => void;
   cancel: () => void;
+  setImage: (image?: string) => void;
   updateImageConfig: (updates: Partial<ImageConfig>) => void;
   removeImage: () => void;
   toggleHighlight: () => void;
@@ -295,6 +296,12 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
     startEdit: () => setIsEditing(true),
     save: handleSave,
     cancel: handleCancel,
+    setImage: (nextImage) => {
+      setEditImage(nextImage);
+      if (nextImage) {
+        setEditImageConfig((prev) => prev || DEFAULT_IMG_CONFIG);
+      }
+    },
     updateImageConfig: (updates) => setEditImageConfig(prev => ({ ...prev, ...updates })),
     removeImage: () => setEditImage(undefined),
     toggleHighlight: () => {
@@ -615,11 +622,8 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
         </div>
       </div>
 
-          {/* Body */}
-          <div 
-             className="flex-1 relative flex flex-col p-6 pt-8 overflow-hidden" 
-             onClick={() => !isEditing && setIsEditing(true)}
-          >
+      {/* Body */}
+      <div className="flex-1 relative flex flex-col p-6 pt-8 overflow-hidden">
         {!isCover && <div className={`absolute top-0 left-8 w-[1px] h-full ${gridColor}`}></div>}
         <div className={`flex-1 relative z-10 flex flex-col h-full ${isCover ? 'justify-center' : 'pl-6'}`}>
           {isCover ? (
@@ -803,11 +807,8 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
                  </div>
               </div>
 
-             {/* Main Content Area */}
-             <div 
-                className="flex-1 flex flex-col p-6 min-h-0" 
-                onClick={() => !isEditing && setIsEditing(true)}
-             >
+              {/* Main Content Area */}
+              <div className="flex-1 flex flex-col p-6 min-h-0">
                  {/* Section Title Block */}
                    <div className="shrink-0 mb-4 flex items-center justify-between border-b border-current/20 pb-2 min-h-[32px]">
                     {isEditing ? (

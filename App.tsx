@@ -69,28 +69,12 @@ const App: React.FC = () => {
   const [zoomLevel, setZoomLevel] = useState(0.85);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [activeCardIndex, setActiveCardIndex] = useState<number | null>(null);
-  
+
   // Track active card state for external toolbar
   const [activeEditConfig, setActiveEditConfig] = useState<ImageConfig | null>(
     null,
   );
   const [activeHasImage, setActiveHasImage] = useState(false);
-
-  // Sync editing index with active card index
-  useEffect(() => {
-    if (activeCardIndex !== null && activeCardIndex !== editingIndex) {
-       // Save previous if any
-       if (editingIndex !== null) {
-          cardRefs.current[editingIndex]?.save();
-       }
-       // Start editing new
-       setEditingIndex(activeCardIndex);
-       // Small delay to let ref update
-       setTimeout(() => {
-          cardRefs.current[activeCardIndex]?.startEdit();
-       }, 50);
-    }
-  }, [activeCardIndex, editingIndex]);
 
   const [config, setConfig] = useState<CardConfig>(() => {
     const defaultConfig = {
@@ -144,8 +128,6 @@ const App: React.FC = () => {
 
       // Find card closest to center
       const cardElements = container.querySelectorAll('.card-wrapper');
-      if (cardElements.length === 0) return;
-
       cardElements.forEach((el, idx) => {
         const rect = (el as HTMLElement).offsetLeft + (el as HTMLElement).offsetWidth / 2;
         const distance = Math.abs(center - rect);
@@ -154,32 +136,16 @@ const App: React.FC = () => {
           closestIndex = idx;
         }
       });
-      
+
       if (closestIndex !== activeCardIndex) {
-         if (activeCardIndex !== null) {
-            // Save the PREVIOUS card before switching
-            cardRefs.current[activeCardIndex]?.save();
-         }
-         
-         setActiveCardIndex(closestIndex);
-         setEditingIndex(closestIndex);
-         
-         // Start editing the NEW card
-         setTimeout(() => {
-            cardRefs.current[closestIndex]?.startEdit();
-         }, 50);
+        setActiveCardIndex(closestIndex);
       }
     };
-    
-    // Initial call
-    // If we have cards but no active index, default to 0
-    if (activeCardIndex === null && cards.length > 0) {
-       setActiveCardIndex(0);
-       setEditingIndex(0);
-       setTimeout(() => cardRefs.current[0]?.startEdit(), 50);
-    }
 
     container.addEventListener('scroll', handleScroll, { passive: true });
+    // Initial check
+    handleScroll();
+
     return () => container.removeEventListener('scroll', handleScroll);
   }, [cards.length, activeCardIndex]);
 
@@ -187,11 +153,7 @@ const App: React.FC = () => {
   const handleProcess = async () => {
     if (!inputText) return;
     setIsProcessing(true);
-    // Clear any previous edit state
     setEditingIndex(null);
-    setActiveCardIndex(null);
-    setActiveEditConfig(null);
-    setActiveHasImage(false);
 
     try {
       const segments = await splitTextIntoCards(inputText);
@@ -200,16 +162,6 @@ const App: React.FC = () => {
       if (scrollContainerRef.current) {
         scrollContainerRef.current.scrollLeft = 0;
       }
-      
-      // Auto-select first card
-      setTimeout(() => {
-         if (segments.length > 0) {
-            setActiveCardIndex(0);
-            setEditingIndex(0);
-            cardRefs.current[0]?.startEdit();
-         }
-      }, 100);
-
     } catch (error) {
       alert("Failed to process text.");
     } finally {
@@ -238,30 +190,21 @@ const App: React.FC = () => {
   };
 
   const handleStartEdit = (index: number) => {
-    // If we're already editing this card, do nothing
-    if (editingIndex === index) return;
-    
-    // Save previous
-    if (editingIndex !== null) {
+    if (editingIndex !== null && editingIndex !== index) {
       cardRefs.current[editingIndex]?.save();
     }
-    
     setEditingIndex(index);
-    setActiveCardIndex(index); // Ensure active matches edit
-    
     // Reset state for new edit
     setActiveEditConfig(null);
     setActiveHasImage(false);
-    
-    // Trigger edit on card component
     cardRefs.current[index]?.startEdit();
   };
 
   const handleSaveEdit = (index: number) => {
-    // Only save content, don't exit edit mode completely if it's the active card
     cardRefs.current[index]?.save();
+    setEditingIndex(null);
+    setActiveEditConfig(null);
   };
-
 
   const handleCancelEdit = (index: number) => {
     cardRefs.current[index]?.cancel();
@@ -274,8 +217,7 @@ const App: React.FC = () => {
     hasImage: boolean,
     config: ImageConfig,
   ) => {
-    // Always update if it's the active card
-    if (index === activeCardIndex) {
+    if (index === editingIndex) {
       setActiveHasImage(hasImage);
       setActiveEditConfig(config);
     }
@@ -289,28 +231,24 @@ const App: React.FC = () => {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file && activeCardIndexForUpload.current !== null) {
+      const targetIdx = activeCardIndexForUpload.current;
       const reader = new FileReader();
       reader.onload = (ev) => {
         const result = ev.target?.result as string;
+        // Keep editing-state preview in sync immediately.
+        cardRefs.current[targetIdx]?.setImage(result);
         setCards((prev) => {
           const newCards = [...prev];
-          const idx = activeCardIndexForUpload.current!;
-          newCards[idx] = {
-            ...newCards[idx],
+          newCards[targetIdx] = {
+            ...newCards[targetIdx],
             image: result,
           };
           return newCards;
         });
-        
-        // Auto-switch to editor tab/mode if needed, but since we are always editing,
-        // just ensure the state is refreshed
-        setTimeout(() => {
-            if (activeCardIndexForUpload.current === activeCardIndex) {
-                 // Force refresh of edit state
-                 cardRefs.current[activeCardIndex]?.startEdit(); 
-            }
-            activeCardIndexForUpload.current = null;
-        }, 100);
+        if (editingIndex === targetIdx) {
+          setActiveHasImage(true);
+        }
+        activeCardIndexForUpload.current = null;
       };
       reader.readAsDataURL(file);
     }
@@ -320,15 +258,10 @@ const App: React.FC = () => {
   const handleDownload = useCallback(async (index: number) => {
     const handle = cardRefs.current[index];
     if (!handle || !handle.element) return;
-    
-    // Save state to render final view
-    handle.save();
-
-    await new Promise((resolve) => setTimeout(resolve, 100));
-
     const el = handle.element;
 
     try {
+      await new Promise((resolve) => setTimeout(resolve, 50));
       const width = el.offsetWidth;
       const height = el.offsetHeight;
 
@@ -352,9 +285,6 @@ const App: React.FC = () => {
           ) {
             return false;
           }
-          if (node instanceof HTMLElement && node.classList.contains('ui-overlay')) {
-             return false;
-          }
           return true;
         },
         fetchRequestInit: {
@@ -367,78 +297,15 @@ const App: React.FC = () => {
       link.click();
     } catch (err) {
       console.error("Download failed", err);
-    } finally {
-        // Restore edit mode if active
-        // Note: Using a ref to access current active index avoids stale closure issues
-        // We'll rely on the parent component (App) passing the correct state or logic
-        // But here we are inside App.tsx. However, activeCardIndex is from closure.
-        // We need to use the ref or ensure dependencies are correct.
-        // Since we can't easily access the LATEST state in a callback without re-creating it on every scroll...
-        // Let's use a ref for activeCardIndex?
-        // Actually, we can just check if the current editingIndex matches?
-        // Or better, just restore it blindly? No, that would activate non-active cards.
-        // We'll check if index === activeCardIndexRef.current (need to add ref)
-        // For now, let's just use the prop.
-        if (index === activeCardIndex) {
-            handle.startEdit();
-        }
     }
-  }, [activeCardIndex]);
+  }, []);
 
   const handleDownloadAll = useCallback(async () => {
-    // If there are cards
-    if (cards.length === 0) return;
-    
-    // Deactivate editing for clean screenshots
-    const previousActive = activeCardIndex;
-    if (previousActive !== null) {
-       cardRefs.current[previousActive]?.save();
-    }
-    
-    // We intentionally don't clear setEditingIndex immediately to avoid UI jumps, 
-    // but we saved the content.
-    
-    // We iterate manually
     for (let i = 0; i < cards.length; i++) {
-       const handle = cardRefs.current[i];
-       if (!handle || !handle.element) continue;
-       
-       // Force save
-       handle.save();
-       // Wait for render
-       await new Promise(r => setTimeout(r, 100));
-       
-       try {
-           const el = handle.element;
-           const width = el.offsetWidth;
-           const height = el.offsetHeight;
-           const dataUrl = await toPng(el, {
-              cacheBust: true, pixelRatio: 3, width, height,
-              style: { width: `${width}px`, height: `${height}px`, zoom: "1", transform: "none", margin: "0", maxHeight: "none" },
-              filter: (node) => {
-                 if (node.tagName === "LINK" && (node as HTMLLinkElement).href.includes("lxgw-zhi-song-screen-web")) return false;
-                 // Exclude internal UI overlays if any remain
-                 if (node instanceof HTMLElement && node.classList.contains('ui-overlay')) return false;
-                 return true;
-              },
-              fetchRequestInit: { mode: "cors" },
-           });
-           const link = document.createElement("a");
-           link.download = `card-${String(i + 1).padStart(2, "0")}.png`;
-           link.href = dataUrl;
-           link.click();
-       } catch (e) { console.error(e); }
-       
-       await new Promise(r => setTimeout(r, 200));
+      await handleDownload(i);
+      await new Promise((r) => setTimeout(r, 200));
     }
-    
-    // Restore editing on the active card
-    if (previousActive !== null) {
-       // Re-trigger edit
-       cardRefs.current[previousActive]?.startEdit();
-    }
-    
-  }, [cards.length, activeCardIndex]);
+  }, [cards.length, handleDownload]);
 
   const hasContent = cards.length > 0;
 
