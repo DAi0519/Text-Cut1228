@@ -70,6 +70,8 @@ const App: React.FC = () => {
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [activeCardIndex, setActiveCardIndex] = useState<number | null>(null);
   const [consoleHeight, setConsoleHeight] = useState(0);
+  const [isScrolling, setIsScrolling] = useState(false);
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Track active card state for external toolbar
   const [activeEditConfig, setActiveEditConfig] = useState<ImageConfig | null>(
@@ -123,6 +125,9 @@ const App: React.FC = () => {
     if (!container || cards.length === 0) return;
 
     const handleScroll = () => {
+      setIsScrolling(true);
+      if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
+      
       const center = container.scrollLeft + container.clientWidth / 2;
       let minDistance = Infinity;
       let closestIndex = 0;
@@ -141,6 +146,10 @@ const App: React.FC = () => {
       if (closestIndex !== activeCardIndex) {
         setActiveCardIndex(closestIndex);
       }
+
+      scrollTimeoutRef.current = setTimeout(() => {
+        setIsScrolling(false);
+      }, 150);
     };
 
     container.addEventListener('scroll', handleScroll, { passive: true });
@@ -158,7 +167,21 @@ const App: React.FC = () => {
 
     try {
       const segments = await splitTextIntoCards(inputText);
-      setCards(segments);
+      const userTitle = config.title.trim();
+      const nextSegments = [...segments];
+
+      if (nextSegments.length > 0) {
+        if (userTitle) {
+          nextSegments[0] = { ...nextSegments[0], title: userTitle };
+        } else {
+          const generatedCoverTitle = (nextSegments[0].title || "").trim();
+          if (generatedCoverTitle) {
+            setConfig((prev) => ({ ...prev, title: generatedCoverTitle }));
+          }
+        }
+      }
+
+      setCards(nextSegments);
       // Reset scroll
       if (scrollContainerRef.current) {
         scrollContainerRef.current.scrollLeft = 0;
@@ -362,11 +385,11 @@ const App: React.FC = () => {
         {!hasContent ? (
           // --- HERO INPUT MODE ---
           <div className="absolute inset-0 flex flex-col items-center justify-center p-6 animate-in fade-in zoom-in-95 duration-700">
-            <div className="w-full max-w-2xl flex flex-col items-center gap-10">
+            <div className="w-full max-w-5xl flex flex-col items-center gap-16">
               
               {/* Slogan */}
-              <div className="text-center space-y-4">
-                <h1 className="text-5xl md:text-7xl font-bold tracking-tighter text-[#18181b] leading-none">
+              <div className="text-center space-y-8">
+                <h1 className="text-5xl md:text-8xl font-bold tracking-tighter text-[#18181b] leading-none text-nowrap">
                   Quantity produces quality
                   <span className="text-[#ea580c]">.</span>
                 </h1>
@@ -376,44 +399,58 @@ const App: React.FC = () => {
               </div>
 
               {/* Hero Input Area */}
-              <div className="w-full relative group">
-                <div className="absolute -inset-1 bg-gradient-to-r from-orange-100 to-orange-50 rounded-2xl blur opacity-20 group-hover:opacity-40 transition duration-500"></div>
-                <div className="relative bg-white rounded-xl shadow-2xl shadow-black/5 border border-black/5 overflow-hidden flex flex-col transition-all duration-300 group-hover:shadow-orange-500/10 group-hover:border-orange-500/20">
+              <div className="w-full max-w-3xl relative group">
+                <div className="relative bg-white rounded-3xl shadow-xl shadow-black/5 border border-black/5 overflow-hidden flex flex-col transition-all duration-300 focus-within:shadow-2xl focus-within:border-black/10 focus-within:translate-y-[-2px]">
+                  
+                  {/* Metadata Inputs */}
+                  <div className="flex border-b border-black/5 bg-gray-50/50">
+                    <div className="flex-1 border-r border-black/5 flex items-center px-6">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-black/30 shrink-0 select-none w-12">Title</span>
+                      <input
+                        type="text"
+                        value={config.title}
+                        onChange={(e) => setConfig(prev => ({ ...prev, title: e.target.value }))}
+                        placeholder="Optional"
+                        className="w-full h-12 bg-transparent text-sm font-medium outline-none text-black/80 placeholder:text-black/20 tracking-wide px-2 font-serif"
+                      />
+                    </div>
+                    <div className="w-1/3 flex items-center px-6">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-black/30 shrink-0 select-none w-14">Author</span>
+                      <input
+                        type="text"
+                        value={config.authorName}
+                        onChange={(e) => setConfig(prev => ({ ...prev, authorName: e.target.value }))}
+                        placeholder="Optional"
+                        className="w-full h-12 bg-transparent text-sm font-medium outline-none text-black/80 placeholder:text-black/20 tracking-wide px-2 font-serif"
+                      />
+                    </div>
+                  </div>
+
                   <textarea
                     value={inputText}
                     onChange={(e) => setInputText(e.target.value)}
                     placeholder="Paste your article or notes here..."
-                    className="w-full h-40 p-6 text-lg text-black/80 placeholder:text-black/20 outline-none resize-none bg-transparent leading-relaxed"
+                    className="w-full h-48 p-8 text-xl text-black/90 placeholder:text-black/20 outline-none resize-none bg-transparent leading-relaxed font-serif tracking-wide selection:bg-orange-100"
                     spellCheck={false}
                   />
                   
                   {/* Action Bar */}
-                  <div className="h-16 border-t border-black/5 bg-gray-50/50 flex items-center justify-between px-4">
-                     <div className="flex items-center gap-2 text-xs font-medium text-black/30 px-2">
-                        <Sparkles size={14} />
-                        <span>AI-Powered Formatting</span>
-                     </div>
+                  <div className="absolute bottom-6 right-6">
                      <button
                         onClick={handleProcess}
                         disabled={!inputText.trim() || isProcessing}
                         className={`
-                          h-10 px-6 rounded-lg flex items-center gap-2 transition-all duration-300 font-bold text-sm tracking-wide shadow-lg
+                          h-12 w-12 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg
                           ${!inputText.trim() 
-                            ? "bg-gray-200 text-gray-400 cursor-not-allowed shadow-none" 
-                            : "bg-[#ea580c] hover:bg-[#c2410c] text-white hover:shadow-orange-500/25 active:scale-95 transform"
+                            ? "bg-black/5 text-black/10 cursor-not-allowed shadow-none scale-90" 
+                            : "bg-black text-white hover:bg-[#ea580c] hover:scale-110 active:scale-95 hover:shadow-orange-500/30"
                           }
                         `}
                      >
                         {isProcessing ? (
-                          <>
-                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                            <span>Processing...</span>
-                          </>
+                          <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                         ) : (
-                          <>
-                            <span>Generate Cards</span>
-                            <ArrowRight size={16} />
-                          </>
+                          <ArrowRight size={20} strokeWidth={2.5} />
                         )}
                      </button>
                   </div>
@@ -438,17 +475,25 @@ const App: React.FC = () => {
                 {cards.map((segment, idx) => (
                   <div
                     key={idx}
-                    className={`card-wrapper flex-shrink-0 snap-center transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${activeCardIndex === idx ? 'scale-100 opacity-100 z-10' : 'scale-90 opacity-40 z-0 blur-[1px]'}`}
+                    className={`card-wrapper flex-shrink-0 snap-center transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${
+                      activeCardIndex === idx 
+                        ? 'scale-100 opacity-100 z-10 filter-none' 
+                        : 'scale-90 opacity-40 z-0 blur-[1px] hover:opacity-60 cursor-pointer'
+                    }`}
                     onClick={() => {
-                       setActiveCardIndex(idx);
-                       scrollContainerRef.current?.scrollTo({
-                          left: (scrollContainerRef.current?.children[0]?.children[idx] as HTMLElement)?.offsetLeft - scrollContainerRef.current?.clientWidth / 2 + (scrollContainerRef.current?.children[0]?.children[idx] as HTMLElement)?.offsetWidth / 2,
-                          behavior: 'smooth'
-                       });
+                       if (activeCardIndex === idx) return;
+                       const targetEl = scrollContainerRef.current?.children[0]?.children[idx] as HTMLElement;
+                       if (targetEl && scrollContainerRef.current) {
+                          const targetLeft = targetEl.offsetLeft - scrollContainerRef.current.clientWidth / 2 + targetEl.offsetWidth / 2;
+                          scrollContainerRef.current.scrollTo({
+                             left: targetLeft,
+                             behavior: 'smooth'
+                          });
+                       }
                     }}
                   >
                     <div
-                      className={`relative rounded-2xl shadow-xl bg-white mx-auto overflow-hidden ring-1 ring-black/5`}
+                      className={`relative rounded-2xl shadow-xl bg-white mx-auto overflow-hidden ring-1 ring-black/5 transition-transform duration-500 will-change-transform ${isScrolling ? 'pointer-events-none' : ''}`}
                       style={{
                         ...getCardStyle(config.aspectRatio),
                         // @ts-ignore
