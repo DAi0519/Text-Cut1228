@@ -405,6 +405,18 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
     }
   };
 
+  const renderHighlightedTitle = (title: string) => {
+    return title.split(/(\*\*[\s\S]*?\*\*)/g).map((part, i) =>
+      part.startsWith("**") && part.endsWith("**") ? (
+        <span key={i} style={{ color: config.accentColor }}>
+          {part.slice(2, -2)}
+        </span>
+      ) : (
+        <span key={i}>{part}</span>
+      ),
+    );
+  };
+
   // Shared Styles
   const isDark = config.colorway === 'neon';
   const gridColor = isDark ? 'bg-white/5' : 'bg-black/5';
@@ -643,11 +655,7 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
                           className={`w-full bg-transparent text-5xl font-bold leading-none outline-none border-b border-dashed border-current/30 py-2 ${inputBgColor} ${getFontClass(config.fontStyle)}`} rows={3} style={{ color: config.textColor, resize: 'none' }} />
                      ) : (
                        <h2 className={`text-5xl font-bold leading-[1.05] text-left break-words whitespace-pre-wrap ${getFontClass(config.fontStyle)}`} style={{ color: config.textColor }}>
-                        {(editTitle || "UNTITLED").split(/(\*\*[\s\S]*?\*\*)/g).map((part, i) => 
-                          part.startsWith('**') && part.endsWith('**') 
-                            ? <span key={i} style={{ color: config.accentColor }}>{part.slice(2, -2)}</span> 
-                            : part
-                        )}
+                        {renderHighlightedTitle(editTitle || "UNTITLED")}
                        </h2>
                      )}
                   </div>
@@ -772,7 +780,7 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
                          className={`w-full bg-transparent text-6xl font-bold uppercase tracking-tighter outline-none ${inputBgColor} leading-[1.0]`} rows={4} style={{ color: config.textColor, resize: 'none' }} />
                     ) : (
                       <h1 className="text-6xl font-bold uppercase tracking-tighter leading-[1.0] break-words hyphens-auto whitespace-pre-wrap">
-                        {editTitle || "UNTITLED"}
+                        {renderHighlightedTitle(editTitle || "UNTITLED")}
                       </h1>
                     )}
                  </div>
@@ -815,7 +823,9 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
                        <input ref={titleInputRef as any} value={editTitle} onChange={(e) => setEditTitle(e.target.value)} 
                         className={`bg-transparent text-xl font-bold uppercase tracking-tight w-full outline-none ${inputBgColor}`} style={{ color: config.textColor }} placeholder="DATA BLOCK" />
                     ) : ( editTitle && (
-                       <h2 className="text-xl font-bold uppercase tracking-tight leading-none">{editTitle}</h2>
+                       <h2 className="text-xl font-bold uppercase tracking-tight leading-none">
+                        {renderHighlightedTitle(editTitle)}
+                       </h2>
                     ))}
                     <div className="w-2.5 h-2.5 opacity-100" style={{ backgroundColor: config.accentColor }}></div>
                  </div>
