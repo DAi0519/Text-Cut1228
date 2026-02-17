@@ -5,7 +5,7 @@ import {
   ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Square, RectangleHorizontal, 
   RectangleVertical, ScanLine, ZoomIn, Trash2, X, Check, Pencil, 
   LayoutTemplate, Image as ImageIcon, ArrowDownToLine, Download, Play, Minus, Plus, Settings2,
-  FileText, Sparkles, Move
+  FileText, Sparkles, Move, ChevronDown, Layers
 } from 'lucide-react';
 
 interface ConsoleProps {
@@ -35,6 +35,7 @@ interface ConsoleProps {
   activeImageConfig: ImageConfig | null;
   onUpdateImageConfig: (updates: Partial<ImageConfig>) => void;
   onRemoveImage: () => void;
+  onHeightChange?: (height: number) => void;
 }
 
 const COLORWAYS: Preset[] = [
@@ -50,9 +51,39 @@ export const Console: React.FC<ConsoleProps> = ({
   activeCardIndex, editingIndex,
   onToggleLayout, onStartEdit, onSaveEdit, onCancelEdit, onTriggerImage, 
   onDownload, onToggleHighlight,
-  activeHasImage, activeImageConfig, onUpdateImageConfig, onRemoveImage
+  activeHasImage, activeImageConfig, onUpdateImageConfig, onRemoveImage,
+  onHeightChange
 }) => {
   const [activeTab, setActiveTab] = useState<TabId>('style');
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Measure height changes
+  useEffect(() => {
+    if (!containerRef.current || !onHeightChange) return;
+    
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        onHeightChange(entry.contentRect.height);
+      }
+    });
+    
+    resizeObserver.observe(containerRef.current);
+    return () => resizeObserver.disconnect();
+  }, [onHeightChange]);
+
+  // Close export menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(event.target as Node)) {
+        setShowExportMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   const prevTabRef = useRef<TabId>('style');
 
   const updateConfig = (key: keyof CardConfig, value: any) => {
@@ -124,7 +155,7 @@ export const Console: React.FC<ConsoleProps> = ({
   const hasActiveCard = activeCardIndex !== null;
 
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-full max-w-[640px] bg-white/95 backdrop-blur-xl border border-black/5 rounded-2xl shadow-2xl overflow-hidden flex flex-col z-50 ring-1 ring-black/5">
+    <div ref={containerRef} className="fixed bottom-6 left-1/2 -translate-x-1/2 w-full max-w-[640px] bg-white/95 backdrop-blur-xl border border-black/5 rounded-2xl shadow-2xl overflow-hidden flex flex-col z-50 ring-1 ring-black/5">
       
       {/* --- TOP BAR --- */}
       <div className="h-11 border-b border-black/5 flex items-center justify-between px-2">
@@ -144,17 +175,29 @@ export const Console: React.FC<ConsoleProps> = ({
         </div>
         <div className="flex items-center gap-1.5 pr-1">
            {hasContent && (
-             <>
-                <button onClick={onDownload} className="h-7 px-2.5 rounded-lg text-black/40 hover:text-black hover:bg-black/5 transition-colors flex items-center gap-1.5 justify-center border border-transparent hover:border-black/5" title="Download Current Card">
-                  <ArrowDownToLine size={14} />
-                  <span className="text-[9px] font-bold uppercase tracking-wider hidden sm:inline">Current</span>
-                </button>
-                <div className="w-px h-3 bg-black/5 mx-1"></div>
-                <button onClick={onDownloadAll} className="h-7 px-2.5 rounded-lg text-black/40 hover:text-black hover:bg-black/5 transition-colors flex items-center gap-1.5 justify-center border border-transparent hover:border-black/5" title="Download All Cards">
+             <div className="relative" ref={exportMenuRef}>
+                <button 
+                  onClick={() => setShowExportMenu(!showExportMenu)} 
+                  className={`h-7 px-2.5 rounded-lg transition-all flex items-center gap-1.5 justify-center border ${showExportMenu ? 'bg-black text-white border-black shadow-sm' : 'text-black/40 hover:text-black hover:bg-black/5 border-transparent'}`}
+                >
                   <Download size={14} />
-                  <span className="text-[9px] font-bold uppercase tracking-wider hidden sm:inline">All</span>
+                  <span className="text-[9px] font-bold uppercase tracking-wider hidden sm:inline">Export</span>
+                  <ChevronDown size={10} className={`transition-transform duration-200 ${showExportMenu ? 'rotate-180' : ''}`} />
                 </button>
-             </>
+                
+                {showExportMenu && (
+                  <div className="absolute right-0 top-full mt-2 w-36 bg-white rounded-xl shadow-xl border border-black/5 overflow-hidden animate-in fade-in zoom-in-95 slide-in-from-top-2 duration-200 p-1 flex flex-col z-50 ring-1 ring-black/5">
+                     <button onClick={() => { onDownload(); setShowExportMenu(false); }} className="h-9 px-2.5 rounded-lg hover:bg-black/5 flex items-center gap-2.5 text-left transition-colors text-black/80 hover:text-black group">
+                        <ArrowDownToLine size={14} className="text-black/40 group-hover:text-black transition-colors" />
+                        <span className="text-[10px] font-bold uppercase tracking-wider">Current Card</span>
+                     </button>
+                     <button onClick={() => { onDownloadAll(); setShowExportMenu(false); }} className="h-9 px-2.5 rounded-lg hover:bg-black/5 flex items-center gap-2.5 text-left transition-colors text-black/80 hover:text-black group">
+                        <Layers size={14} className="text-black/40 group-hover:text-black transition-colors" />
+                        <span className="text-[10px] font-bold uppercase tracking-wider">All Cards</span>
+                     </button>
+                  </div>
+                )}
+             </div>
            )}
         </div>
       </div>
@@ -192,19 +235,19 @@ export const Console: React.FC<ConsoleProps> = ({
                       </div>
                    </div>
                 </div>
-                <div className="flex flex-col gap-2 shrink-0">
+             </div>
+             <div className="h-px bg-black/5"></div>
+             <div className="flex items-end gap-4">
+                <div className="flex flex-col gap-2 flex-1">
                    <label className="text-[9px] font-bold uppercase tracking-wider opacity-40 pl-0.5">Font</label>
                    <div className="flex bg-black/[0.03] p-0.5 rounded-lg gap-0.5">
                       {fontStyles.map(style => (
-                        <button key={style.value} onClick={() => updateConfig('fontStyle', style.value)} className={`h-8 px-3 rounded-md flex items-center justify-center transition-all ${config.fontStyle === style.value ? 'bg-white text-black shadow-sm' : 'text-black/40 hover:text-black'}`}>
+                        <button key={style.value} onClick={() => updateConfig('fontStyle', style.value)} className={`flex-1 h-8 px-3 rounded-md flex items-center justify-center transition-all ${config.fontStyle === style.value ? 'bg-white text-black shadow-sm' : 'text-black/40 hover:text-black'}`}>
                            <span className="text-[10px] font-bold uppercase tracking-wide">{style.label}</span>
                         </button>
                       ))}
                    </div>
                 </div>
-             </div>
-             <div className="h-px bg-black/5"></div>
-             <div className="flex items-end gap-6">
                 <div className="flex flex-col gap-2 flex-1">
                    <label className="text-[9px] font-bold uppercase tracking-wider opacity-40 pl-0.5">Ratio</label>
                    <div className="flex bg-black/[0.03] p-0.5 rounded-lg gap-0.5 w-full">
@@ -212,10 +255,6 @@ export const Console: React.FC<ConsoleProps> = ({
                        <button key={ratio} onClick={() => updateConfig('aspectRatio', ratio)} className={`flex-1 h-8 rounded-md text-[10px] font-mono transition-all flex items-center justify-center ${config.aspectRatio === ratio ? 'bg-white text-black shadow-sm' : 'text-black/40 hover:text-black'}`}>{ratio}</button>
                      ))}
                    </div>
-                </div>
-                <div className="flex flex-col gap-2 w-1/3">
-                   <label className="text-[9px] font-bold uppercase tracking-wider opacity-40 pl-0.5 flex justify-between"><span>Scale</span><span className="font-mono">{config.fontSize.toFixed(1)}</span></label>
-                   <div className="h-9 flex items-center"><input type="range" min="0.7" max="1.5" step="0.05" value={config.fontSize} onChange={(e) => updateConfig('fontSize', parseFloat(e.target.value))} className="w-full h-1.5 bg-black/5 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:border [&::-webkit-slider-thumb]:border-black/10 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:shadow-sm hover:[&::-webkit-slider-thumb]:scale-110 transition-all" /></div>
                 </div>
              </div>
           </div>

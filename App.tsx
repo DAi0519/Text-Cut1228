@@ -69,6 +69,7 @@ const App: React.FC = () => {
   const [zoomLevel, setZoomLevel] = useState(0.85);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [activeCardIndex, setActiveCardIndex] = useState<number | null>(null);
+  const [consoleHeight, setConsoleHeight] = useState(0);
 
   // Track active card state for external toolbar
   const [activeEditConfig, setActiveEditConfig] = useState<ImageConfig | null>(
@@ -426,7 +427,12 @@ const App: React.FC = () => {
           <div 
              ref={scrollContainerRef}
              className="absolute inset-0 flex items-center overflow-x-auto snap-x snap-mandatory px-[50vw] scroll-smooth custom-scrollbar animate-in fade-in duration-1000"
-             style={{ paddingLeft: 'calc(50vw - 190px)', paddingRight: 'calc(50vw - 190px)' }}
+             style={{ 
+               paddingLeft: 'calc(50vw - 190px)', 
+               paddingRight: 'calc(50vw - 190px)',
+               paddingBottom: hasContent ? consoleHeight + 40 : 0,
+               transition: 'padding-bottom 0.5s cubic-bezier(0.32, 0.72, 0, 1)'
+             }}
           >
              <div className="flex items-center gap-12 py-20">
                 {cards.map((segment, idx) => (
@@ -508,6 +514,7 @@ const App: React.FC = () => {
             activeImageConfig={activeEditConfig}
             onUpdateImageConfig={(updates) => activeCardIndex !== null && cardRefs.current[activeCardIndex]?.updateImageConfig(updates)}
             onRemoveImage={() => activeCardIndex !== null && cardRefs.current[activeCardIndex]?.removeImage()}
+            onHeightChange={setConsoleHeight}
           />
         </div>
       )}
