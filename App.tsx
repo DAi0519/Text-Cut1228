@@ -24,6 +24,38 @@ const VALID_FONT_STYLES = new Set([
   FontStyle.OPPO,
   FontStyle.SWEI,
 ]);
+const CONFIG_VERSION = 2;
+const CARD_BASE_WIDTHS: Record<AspectRatio, number> = {
+  [AspectRatio.PORTRAIT]: 380,
+  [AspectRatio.SQUARE]: 480,
+  [AspectRatio.WIDE]: 600,
+};
+
+const getCardWidth = (ratio: AspectRatio, scale: number) =>
+  Math.round(CARD_BASE_WIDTHS[ratio] * scale);
+
+const migrateConfig = (
+  raw: Partial<CardConfig>,
+  defaults: CardConfig,
+  savedVersion: number,
+): CardConfig => {
+  if (savedVersion >= CONFIG_VERSION) {
+    return normalizeConfig(raw, defaults);
+  }
+
+  const next = { ...raw };
+
+  // Upgrade legacy defaults without stomping on deliberate user choices.
+  if (raw.cardScale == null || raw.cardScale === 1.15) {
+    next.cardScale = defaults.cardScale;
+  }
+
+  if (raw.fontSize == null || raw.fontSize === 1.0) {
+    next.fontSize = defaults.fontSize;
+  }
+
+  return normalizeConfig(next, defaults);
+};
 
 const normalizeConfig = (
   raw: Partial<CardConfig>,
@@ -51,6 +83,13 @@ const normalizeConfig = (
       merged.fontSize <= 1.5
         ? merged.fontSize
         : defaults.fontSize,
+    cardScale:
+      typeof merged.cardScale === "number" &&
+      Number.isFinite(merged.cardScale) &&
+      merged.cardScale >= 0.9 &&
+      merged.cardScale <= 1.5
+        ? merged.cardScale
+        : defaults.cardScale,
   };
 };
 
@@ -88,7 +127,8 @@ const App: React.FC = () => {
       fontStyle: FontStyle.SWEI,
       composition: "classic",
       aspectRatio: AspectRatio.PORTRAIT,
-      fontSize: 1.0,
+      fontSize: 1.05,
+      cardScale: 1.35,
       showMetadata: true,
       title: "",
       authorName: "",
@@ -97,7 +137,10 @@ const App: React.FC = () => {
     try {
       const saved = localStorage.getItem("textcuts_config");
       if (saved) {
-        return normalizeConfig(JSON.parse(saved), defaultConfig);
+        const savedVersion = Number(
+          localStorage.getItem("textcuts_config_version") || "0",
+        );
+        return migrateConfig(JSON.parse(saved), defaultConfig, savedVersion);
       }
       return defaultConfig;
     } catch {
@@ -117,6 +160,7 @@ const App: React.FC = () => {
   }, [inputText]);
   useEffect(() => {
     localStorage.setItem("textcuts_config", JSON.stringify(config));
+    localStorage.setItem("textcuts_config_version", String(CONFIG_VERSION));
   }, [config]);
 
   // --- Scroll & Active Card Detection ---
@@ -166,7 +210,7 @@ const App: React.FC = () => {
     setEditingIndex(null);
 
     try {
-      const segments = await splitTextIntoCards(inputText);
+      const segments = await splitTextIntoCards(inputText, config);
       const userTitle = config.title.trim();
       const nextSegments = [...segments];
 
@@ -333,28 +377,17 @@ const App: React.FC = () => {
 
   const hasContent = cards.length > 0;
 
-  const getCardStyle = (ratio: AspectRatio) => {
+  const getCardStyle = (ratio: AspectRatio, scale: number) => {
     const ratioValue = ratio.replace(':', '/');
-    let width = "380px";
-    
-    switch (ratio) {
-      case AspectRatio.WIDE:
-        width = "600px";
-        break;
-      case AspectRatio.SQUARE:
-        width = "480px";
-        break;
-      case AspectRatio.PORTRAIT:
-      default:
-        width = "380px";
-        break;
-    }
+    const width = `${getCardWidth(ratio, scale)}px`;
 
     return {
       width,
       aspectRatio: ratioValue,
     };
   };
+
+  const activeCardWidth = getCardWidth(config.aspectRatio, config.cardScale);
 
   // --- Render ---
   return (
@@ -465,8 +498,8 @@ const App: React.FC = () => {
              ref={scrollContainerRef}
              className="absolute inset-0 flex items-center overflow-x-auto snap-x snap-mandatory px-[50vw] scroll-smooth custom-scrollbar animate-in fade-in duration-1000"
              style={{ 
-               paddingLeft: 'calc(50vw - 190px)', 
-               paddingRight: 'calc(50vw - 190px)',
+               paddingLeft: `calc(50vw - ${activeCardWidth / 2}px)`, 
+               paddingRight: `calc(50vw - ${activeCardWidth / 2}px)`,
                paddingBottom: hasContent ? consoleHeight + 40 : 0,
                transition: 'padding-bottom 0.5s cubic-bezier(0.32, 0.72, 0, 1)'
              }}
@@ -495,7 +528,7 @@ const App: React.FC = () => {
                     <div
                       className={`relative rounded-2xl shadow-xl bg-white mx-auto overflow-hidden ring-1 ring-black/5 transition-transform duration-500 will-change-transform ${isScrolling ? 'pointer-events-none' : ''}`}
                       style={{
-                        ...getCardStyle(config.aspectRatio),
+                        ...getCardStyle(config.aspectRatio, config.cardScale),
                         // @ts-ignore
                         zoom: zoomLevel,
                         transformOrigin: "center center",

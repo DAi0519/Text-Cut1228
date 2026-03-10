@@ -348,7 +348,7 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
     } else {
       setIsOverflowing(false);
     }
-  }, [editContent, currentLayout, config.fontSize, config.aspectRatio, config.title, config.authorName, isEditing, config.fontStyle, config.composition, editImage, editImageConfig]);
+  }, [editContent, currentLayout, config.fontSize, config.cardScale, config.aspectRatio, config.title, config.authorName, isEditing, config.fontStyle, config.composition, editImage, editImageConfig]);
 
 
   const handleSplitCard = (e: React.MouseEvent) => {
@@ -423,6 +423,9 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
   const borderColor = isDark ? 'border-white/10' : 'border-black/10';
   const secondaryTextColor = isDark ? 'text-white/40' : 'text-black/40';
   const inputBgColor = isDark ? 'bg-white/10' : 'bg-black/5';
+  const chromeScale = config.cardScale || 1;
+  const px = (value: number) => `${Math.round(value * chromeScale)}px`;
+  const rem = (value: number) => `${(value * chromeScale).toFixed(3)}rem`;
 
   const isCover = currentLayout === 'cover';
 
@@ -619,27 +622,57 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
     return (
     <div className="flex flex-col h-full w-full">
       {/* Header */}
-      <div className={`h-16 shrink-0 px-8 flex items-center justify-between border-b ${borderColor} font-sans`}>
+      <div
+        className={`shrink-0 flex items-center justify-between border-b ${borderColor} font-sans`}
+        style={{ height: px(64), paddingInline: px(32) }}
+      >
         <div className="flex flex-col justify-center h-full">
-           {!isFirst && <span className={`text-[9px] font-mono uppercase tracking-[0.25em] ${secondaryTextColor} mb-0.5`}>Project</span>}
-           <span className="text-xs font-bold uppercase tracking-widest truncate max-w-[120px] opacity-80">{isFirst ? "PROJECT" : (config.title || "Untitled")}</span>
+           {!isFirst && (
+             <span
+               className={`font-mono uppercase tracking-[0.25em] ${secondaryTextColor} mb-0.5`}
+               style={{ fontSize: px(9) }}
+             >
+               Project
+             </span>
+           )}
+           <span
+             className="font-bold uppercase tracking-widest truncate opacity-80"
+             style={{ fontSize: px(12), maxWidth: px(120) }}
+           >
+             {isFirst ? "PROJECT" : (config.title || "Untitled")}
+           </span>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center" style={{ gap: px(16) }}>
            {showNumber && (
-             <div className={`text-[10px] font-mono tracking-widest ${secondaryTextColor}`}>
+             <div
+               className={`font-mono tracking-widest ${secondaryTextColor}`}
+               style={{ fontSize: px(10) }}
+             >
                {displayIndex}<span className="opacity-30 mx-1">/</span>{displayTotal}
              </div>
            )}
-           <div className="w-2.5 h-2.5 rounded-full shadow-sm relative" style={{ backgroundColor: config.accentColor }}></div>
+           <div
+             className="rounded-full shadow-sm relative"
+             style={{ backgroundColor: config.accentColor, width: px(10), height: px(10) }}
+           ></div>
         </div>
       </div>
 
       {/* Body */}
-      <div className="flex-1 relative flex flex-col p-6 pt-8 overflow-hidden">
-        {!isCover && <div className={`absolute top-0 left-8 w-[1px] h-full ${gridColor}`}></div>}
-        <div className={`flex-1 relative z-10 flex flex-col h-full ${isCover ? 'justify-center' : 'pl-6'}`}>
+      <div
+        className="flex-1 relative flex flex-col overflow-hidden"
+        style={{ padding: px(24), paddingTop: px(32) }}
+      >
+        {!isCover && <div className={`absolute top-0 h-full ${gridColor}`} style={{ left: px(32), width: '1px' }}></div>}
+        <div
+          className={`flex-1 relative z-10 flex flex-col h-full ${isCover ? 'justify-center' : ''}`}
+          style={isCover ? undefined : { paddingLeft: px(24) }}
+        >
           {isCover ? (
-             <div className={`w-full flex h-full ${isHorizontal ? 'flex-row items-center gap-6' : 'flex-col justify-center'} animate-in fade-in zoom-in-95 duration-500`}>
+             <div
+               className={`w-full flex h-full ${isHorizontal ? 'flex-row items-center' : 'flex-col justify-center'} animate-in fade-in zoom-in-95 duration-500`}
+               style={isHorizontal ? { gap: px(24) } : undefined}
+             >
                
                {editImageConfig.position === 'left' && renderEditableImage("h-full rounded-sm")}
                {editImageConfig.position === 'top' && renderEditableImage(
@@ -647,14 +680,14 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
                  true
                )}
 
-               <div className={`flex gap-6 md:gap-8 ${isHorizontal ? 'flex-1' : ''}`}>
-                  <div className="w-1.5 shrink-0" style={{ backgroundColor: config.accentColor }}></div>
-                  <div className="flex flex-col gap-6 w-full justify-center">
+               <div className={`flex ${isHorizontal ? 'flex-1' : ''}`} style={{ gap: px(24) }}>
+                  <div className="shrink-0" style={{ backgroundColor: config.accentColor, width: px(6) }}></div>
+                  <div className="flex flex-col w-full justify-center" style={{ gap: px(24) }}>
                      {isEditing ? (
                         <textarea ref={titleInputRef as React.RefObject<HTMLTextAreaElement>} value={editTitle} onChange={(e) => setEditTitle(e.target.value)} placeholder="ENTER TITLE"
-                          className={`w-full bg-transparent text-5xl font-bold leading-none outline-none border-b border-dashed border-current/30 py-2 ${inputBgColor} ${getFontClass(config.fontStyle)}`} rows={3} style={{ color: config.textColor, resize: 'none' }} />
+                          className={`w-full bg-transparent font-bold leading-none outline-none border-b border-dashed border-current/30 ${inputBgColor} ${getFontClass(config.fontStyle)}`} rows={3} style={{ color: config.textColor, resize: 'none', fontSize: rem(2.7), paddingBlock: px(8) }} />
                      ) : (
-                       <h2 className={`text-5xl font-bold leading-[1.05] text-left break-words whitespace-pre-wrap ${getFontClass(config.fontStyle)}`} style={{ color: config.textColor }}>
+                       <h2 className={`font-bold leading-[1.05] text-left break-words whitespace-pre-wrap ${getFontClass(config.fontStyle)}`} style={{ color: config.textColor, fontSize: rem(2.7) }}>
                         {renderHighlightedTitle(editTitle || "UNTITLED")}
                        </h2>
                      )}
@@ -670,18 +703,18 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
           ) : (
             <>
               <div className="shrink-0 animate-in fade-in slide-in-from-top-2 duration-300">
-                <div className="mb-4">
+                <div style={{ marginBottom: px(16) }}>
                   {/* Segment Decoration Removed */}
                   {isEditing ? (
                     <input ref={titleInputRef as any} value={editTitle} onChange={(e) => setEditTitle(e.target.value)} placeholder="(No Title)"
-                      className={`w-full bg-transparent text-[1.75rem] font-bold leading-tight outline-none border-b border-dashed border-current/30 py-1 ${inputBgColor} placeholder:text-current/20 ${getFontClass(config.fontStyle)}`} style={{ color: config.textColor }} />
-                  ) : ( editTitle && <h2 className={`text-[1.75rem] font-bold leading-tight whitespace-pre-wrap ${getFontClass(config.fontStyle)}`} style={{ color: config.textColor }}>{editTitle}</h2> )}
+                      className={`w-full bg-transparent font-bold leading-tight outline-none border-b border-dashed border-current/30 ${inputBgColor} placeholder:text-current/20 ${getFontClass(config.fontStyle)}`} style={{ color: config.textColor, fontSize: rem(1.75), paddingBlock: px(4) }} />
+                  ) : ( editTitle && <h2 className={`font-bold leading-tight whitespace-pre-wrap ${getFontClass(config.fontStyle)}`} style={{ color: config.textColor, fontSize: rem(1.75) }}>{editTitle}</h2> )}
                 </div>
-                {(isEditing || editTitle) && <div className="w-12 h-[2px] mb-6 opacity-20 shrink-0" style={{ backgroundColor: config.accentColor }}></div>}
+                {(isEditing || editTitle) && <div className="opacity-20 shrink-0" style={{ backgroundColor: config.accentColor, width: px(48), height: '2px', marginBottom: px(24) }}></div>}
               </div>
               
               {/* Body Content with dynamic image position */}
-              <div className={`flex-1 min-h-0 relative flex ${isHorizontal ? 'flex-row gap-6' : 'flex-col'}`}>
+              <div className={`flex-1 min-h-0 relative flex ${isHorizontal ? 'flex-row' : 'flex-col'}`} style={isHorizontal ? { gap: px(24) } : undefined}>
                  
                  {editImageConfig.position === 'left' && renderEditableImage("h-full rounded-sm")}
                  {editImageConfig.position === 'top' && renderEditableImage("w-full mb-6 rounded-sm")}
@@ -701,9 +734,12 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
       </div>
 
       {/* Footer */}
-      <div className={`h-12 shrink-0 border-t ${borderColor} flex items-center justify-between px-8 ${isDark ? 'bg-white/5' : 'bg-black/5'} font-sans`}>
-        <div className="flex items-center gap-4">
-           {config.authorName && <span className="text-[9px] font-bold tracking-widest uppercase opacity-40">Authored by {config.authorName}</span>}
+      <div
+        className={`shrink-0 border-t ${borderColor} flex items-center justify-between ${isDark ? 'bg-white/5' : 'bg-black/5'} font-sans`}
+        style={{ height: px(48), paddingInline: px(32) }}
+      >
+        <div className="flex items-center" style={{ gap: px(16) }}>
+           {config.authorName && <span className="font-bold tracking-widest uppercase opacity-40" style={{ fontSize: px(9) }}>Authored by {config.authorName}</span>}
         </div>
         <div className="flex gap-1 opacity-20"><div className="w-[1px] h-3 bg-current"></div><div className="w-[3px] h-3 bg-current"></div><div className="w-[1px] h-3 bg-current"></div></div>
       </div>
@@ -738,12 +774,21 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
       <div className={`flex flex-col h-full w-full relative ${baseFont} overflow-hidden select-none`}>
          
          {/* Header */}
-         <div className={`h-10 shrink-0 flex items-end justify-between ${isCover ? 'mx-6 px-0' : 'px-6'} border-b-2 border-current pb-2 font-bold uppercase tracking-tighter text-[10px] leading-none z-20 bg-inherit`}>
+         <div
+           className="shrink-0 flex items-end justify-between border-b-2 border-current font-bold uppercase tracking-tighter leading-none z-20 bg-inherit"
+           style={{
+             height: px(40),
+             paddingBottom: px(8),
+             marginInline: isCover ? px(24) : undefined,
+             paddingInline: isCover ? 0 : px(24),
+             fontSize: px(10),
+           }}
+         >
             <div className="flex gap-4 items-baseline">
                <span className="opacity-30">/</span>
                <span>{isFirst ? "PROJECT" : (config.title || "Project")}</span>
             </div>
-            <div className={`font-mono text-[9px] px-1 py-0.5 text-white font-bold uppercase`} style={{ backgroundColor: config.accentColor }}>
+            <div className={`font-mono text-white font-bold uppercase`} style={{ backgroundColor: config.accentColor, fontSize: px(9), paddingInline: px(4), paddingBlock: px(2) }}>
                RUN_{new Date().getFullYear()}
             </div>
          </div>
@@ -753,7 +798,7 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
            <div 
               className={`absolute bottom-2 right-5 font-bold tracking-tighter leading-[0.8] select-none pointer-events-none z-0 transition-opacity duration-300`}
               style={{ 
-                 fontSize: '8rem', 
+                 fontSize: rem(8), 
                  color: isCover ? config.accentColor : 'currentColor',
                  opacity: isCover ? 1 : 0.05 
               }}
@@ -763,23 +808,23 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
          )}
 
          {isCover ? (
-           <div className="flex-1 flex flex-col relative p-6 z-10">
-              <div className="mb-8 flex items-center gap-1 opacity-20">
-                  <div className="w-1 h-4 bg-current"></div>
-                  <div className="w-1 h-4 border border-current"></div>
-                  <div className="w-24 h-[1px] bg-current ml-2"></div>
+           <div className="flex-1 flex flex-col relative z-10" style={{ padding: px(24) }}>
+              <div className="flex items-center gap-1 opacity-20" style={{ marginBottom: px(32) }}>
+                  <div className="bg-current" style={{ width: '1px', height: px(16) }}></div>
+                  <div className="border border-current" style={{ width: '1px', height: px(16) }}></div>
+                  <div className="h-[1px] bg-current ml-2" style={{ width: px(96) }}></div>
               </div>
 
-              <div className={`flex-1 flex ${isHorizontal ? 'flex-row gap-8' : 'flex-col'}`}>
+              <div className={`flex-1 flex ${isHorizontal ? 'flex-row' : 'flex-col'}`} style={isHorizontal ? { gap: px(32) } : undefined}>
                  {editImageConfig.position === 'left' && renderTechnicalImage(false)}
                  {editImageConfig.position === 'top' && renderTechnicalImage(false)}
 
                  <div className={`flex-1 flex flex-col justify-center ${isHorizontal ? '' : 'mb-8'}`}>
                     {isEditing ? (
                        <textarea ref={titleInputRef as React.RefObject<HTMLTextAreaElement>} value={editTitle} onChange={(e) => setEditTitle(e.target.value)} 
-                         className={`w-full bg-transparent text-6xl font-bold uppercase tracking-tighter outline-none ${inputBgColor} leading-[1.0]`} rows={4} style={{ color: config.textColor, resize: 'none' }} />
+                         className={`w-full bg-transparent font-bold uppercase tracking-tighter outline-none ${inputBgColor} leading-[1.0]`} rows={4} style={{ color: config.textColor, resize: 'none', fontSize: rem(3.4) }} />
                     ) : (
-                      <h1 className="text-6xl font-bold uppercase tracking-tighter leading-[1.0] break-words hyphens-auto whitespace-pre-wrap">
+                      <h1 className="font-bold uppercase tracking-tighter leading-[1.0] break-words hyphens-auto whitespace-pre-wrap" style={{ fontSize: rem(3.4) }}>
                         {renderHighlightedTitle(editTitle || "UNTITLED")}
                       </h1>
                     )}
@@ -789,14 +834,14 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
                  {editImageConfig.position === 'bottom' && renderTechnicalImage(true)}
               </div>
 
-              <div className="mt-auto border-t-2 border-current pt-2 flex items-center justify-between">
-                 <div className="flex flex-col gap-1 text-[9px] uppercase font-mono max-w-[100px]">
+              <div className="mt-auto border-t-2 border-current pt-2 flex items-center justify-between" style={{ paddingTop: px(8) }}>
+                 <div className="flex flex-col gap-1 uppercase font-mono" style={{ fontSize: px(9), maxWidth: px(100) }}>
                     <span className="opacity-50">Design Build</span>
                     <span>{config.authorName || "SYS_OP"}</span>
                  </div>
-                 <div className="flex items-center gap-2 opacity-20">
-                     <div className="w-12 h-[1px] bg-current"></div>
-                     <div className="w-2.5 h-2.5 bg-current"></div>
+                 <div className="flex items-center gap-2 opacity-20" style={{ gap: px(8) }}>
+                     <div className="h-[1px] bg-current" style={{ width: px(48) }}></div>
+                     <div className="bg-current" style={{ width: px(10), height: px(10) }}></div>
                  </div>
               </div>
            </div>
@@ -804,30 +849,30 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
            <div className="flex-1 flex h-full z-10">
               
               {/* Left Sidebar */}
-              <div className="w-10 border-r border-current/20 flex flex-col items-center py-6 shrink-0 relative overflow-hidden bg-inherit">
+              <div className="border-r border-current/20 flex flex-col items-center shrink-0 relative overflow-hidden bg-inherit" style={{ width: px(40), paddingBlock: px(24) }}>
                   <div className="absolute inset-0 opacity-5 pointer-events-none" 
                      style={{backgroundImage: `radial-gradient(circle, currentColor 1px, transparent 1px)`, backgroundSize: '4px 4px'}}></div>
-                 <div className="w-1 h-1 bg-current rounded-full opacity-50 mb-4"></div>
-                 <div className="w-[1px] h-12 bg-current opacity-20"></div>
+                 <div className="bg-current rounded-full opacity-50" style={{ width: px(4), height: px(4), marginBottom: px(16) }}></div>
+                 <div className="w-[1px] bg-current opacity-20" style={{ height: px(48) }}></div>
                  <div className="flex-1"></div>
-                 <div className="w-3 h-3 border border-current opacity-30 rounded-full flex items-center justify-center">
-                    <div className="w-0.5 h-0.5 bg-current rounded-full"></div>
+                 <div className="border border-current opacity-30 rounded-full flex items-center justify-center" style={{ width: px(12), height: px(12) }}>
+                    <div className="bg-current rounded-full" style={{ width: px(2), height: px(2) }}></div>
                  </div>
               </div>
 
               {/* Main Content Area */}
-              <div className="flex-1 flex flex-col p-6 min-h-0">
+              <div className="flex-1 flex flex-col min-h-0" style={{ padding: px(24) }}>
                  {/* Section Title Block */}
-                   <div className="shrink-0 mb-4 flex items-center justify-between border-b border-current/20 pb-2 min-h-[32px]">
+                   <div className="shrink-0 flex items-center justify-between border-b border-current/20" style={{ marginBottom: px(16), paddingBottom: px(8), minHeight: px(32) }}>
                     {isEditing ? (
                        <input ref={titleInputRef as any} value={editTitle} onChange={(e) => setEditTitle(e.target.value)} 
-                        className={`bg-transparent text-xl font-bold uppercase tracking-tight w-full outline-none ${inputBgColor}`} style={{ color: config.textColor }} placeholder="DATA BLOCK" />
+                        className={`bg-transparent font-bold uppercase tracking-tight w-full outline-none ${inputBgColor}`} style={{ color: config.textColor, fontSize: rem(1.25) }} placeholder="DATA BLOCK" />
                     ) : ( editTitle && (
-                       <h2 className="text-xl font-bold uppercase tracking-tight leading-none">
+                       <h2 className="font-bold uppercase tracking-tight leading-none" style={{ fontSize: rem(1.25) }}>
                         {renderHighlightedTitle(editTitle)}
                        </h2>
                     ))}
-                    <div className="w-2.5 h-2.5 opacity-100" style={{ backgroundColor: config.accentColor }}></div>
+                    <div className="opacity-100" style={{ backgroundColor: config.accentColor, width: px(10), height: px(10) }}></div>
                  </div>
                  
                  {/* Technical Image Body */}
@@ -843,8 +888,8 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
                        <div className="mb-4 p-[2px] border border-current/30 relative shrink-0">
                            {renderEditableImage("w-full")}
                            <div className="flex justify-between items-center mt-1 px-1">
-                              <span className="text-[8px] font-mono uppercase opacity-50">Visual Data</span>
-                              <span className="text-[8px] font-mono uppercase opacity-50">FIG.{displayIndex}</span>
+                              <span className="font-mono uppercase opacity-50" style={{ fontSize: px(8) }}>Visual Data</span>
+                              <span className="font-mono uppercase opacity-50" style={{ fontSize: px(8) }}>FIG.{displayIndex}</span>
                            </div>
                        </div>
                     )}
@@ -867,8 +912,8 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
                        <div className="mt-4 p-[2px] border border-current/30 relative shrink-0">
                            {renderEditableImage("w-full")}
                            <div className="flex justify-between items-center mt-1 px-1">
-                              <span className="text-[8px] font-mono uppercase opacity-50">Visual Data</span>
-                              <span className="text-[8px] font-mono uppercase opacity-50">FIG.{displayIndex}</span>
+                              <span className="font-mono uppercase opacity-50" style={{ fontSize: px(8) }}>Visual Data</span>
+                              <span className="font-mono uppercase opacity-50" style={{ fontSize: px(8) }}>FIG.{displayIndex}</span>
                            </div>
                        </div>
                     )}

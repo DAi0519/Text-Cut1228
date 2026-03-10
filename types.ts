@@ -28,6 +28,7 @@ export interface CardConfig {
   // Dimensions
   aspectRatio: AspectRatio;
   fontSize: number;
+  cardScale: number;
   
   // Content
   showMetadata: boolean;

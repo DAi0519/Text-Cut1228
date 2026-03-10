@@ -257,6 +257,38 @@ export const Console: React.FC<ConsoleProps> = ({
                    </div>
                 </div>
              </div>
+             <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col gap-2">
+                   <div className="flex items-center justify-between">
+                      <label className="text-[9px] font-bold uppercase tracking-wider opacity-40 pl-0.5">Card Size</label>
+                      <span className="text-[10px] font-mono opacity-50">{Math.round(config.cardScale * 100)}%</span>
+                   </div>
+                   <input
+                     type="range"
+                     min="0.9"
+                     max="1.5"
+                     step="0.05"
+                     value={config.cardScale}
+                     onChange={(e) => updateConfig('cardScale', parseFloat(e.target.value))}
+                     className="w-full h-1.5 bg-black/10 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:bg-black [&::-webkit-slider-thumb]:rounded-full hover:[&::-webkit-slider-thumb]:scale-110 transition-all"
+                   />
+                </div>
+                <div className="flex flex-col gap-2">
+                   <div className="flex items-center justify-between">
+                      <label className="text-[9px] font-bold uppercase tracking-wider opacity-40 pl-0.5">Type Scale</label>
+                      <span className="text-[10px] font-mono opacity-50">{config.fontSize.toFixed(2)}rem</span>
+                   </div>
+                   <input
+                     type="range"
+                     min="0.7"
+                     max="1.5"
+                     step="0.05"
+                     value={config.fontSize}
+                     onChange={(e) => updateConfig('fontSize', parseFloat(e.target.value))}
+                     className="w-full h-1.5 bg-black/10 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:bg-black [&::-webkit-slider-thumb]:rounded-full hover:[&::-webkit-slider-thumb]:scale-110 transition-all"
+                   />
+                </div>
+             </div>
           </div>
         )}
 
