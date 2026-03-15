@@ -1,6 +1,11 @@
 import React, { useState, useEffect, useRef, useLayoutEffect, forwardRef, useImperativeHandle } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { CardConfig, AspectRatio, CardSegment, FontStyle, Composition, ImageConfig } from '../types';
+import {
+  splitIntoSentences,
+  splitIntoClauses,
+  splitAtNearestPunctuation,
+} from '../utils/textSplit';
 import { Scissors, Trash2, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, ZoomIn, Scaling, Move, ScanLine, Square, RectangleHorizontal, RectangleVertical } from 'lucide-react';
 
 interface CardProps {
@@ -13,8 +18,14 @@ interface CardProps {
   total: number;
   config: CardConfig;
   onUpdate?: (data: CardSegment) => void;
-  onSplit?: (contentToMove: string) => void;
+  onSplit?: (segment: CardSegment) => void;
   onEditChange?: (hasImage: boolean, config: ImageConfig) => void;
+  showOverflowControl?: boolean;
+}
+
+export interface OverflowSplitResult {
+  keptSegment: CardSegment;
+  movedSegment: CardSegment;
 }
 
 export interface CardHandle {
@@ -27,6 +38,9 @@ export interface CardHandle {
   updateImageConfig: (updates: Partial<ImageConfig>) => void;
   removeImage: () => void;
   toggleHighlight: () => void;
+  resolveOverflow: () => OverflowSplitResult | null;
+  isOverflowing: () => boolean;
+  getBodyOccupancy: () => number;
 }
 
 const DEFAULT_IMG_CONFIG: ImageConfig = {
@@ -37,7 +51,7 @@ const DEFAULT_IMG_CONFIG: ImageConfig = {
   panY: 50
 };
 
-export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, layout = 'standard', image, imageConfig, index, total, config, onUpdate, onSplit, onEditChange }, ref) => {
+export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, layout = 'standard', image, imageConfig, index, total, config, onUpdate, onSplit, onEditChange, showOverflowControl = true }, ref) => {
   
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(sectionTitle);
@@ -48,6 +62,7 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
   const [isOverflowing, setIsOverflowing] = useState(false);
   
   const contentRef = useRef<HTMLDivElement>(null);
+  const contentMeasureRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const titleInputRef = useRef<HTMLTextAreaElement | HTMLInputElement>(null);
   const contentInputRef = useRef<HTMLTextAreaElement>(null);
@@ -163,6 +178,30 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
       i += 1;
       count += 1;
     }
+    return text.length;
+  };
+
+  const visiblePlainIndexToTextIndex = (text: string, plainIndex: number) => {
+    let i = 0;
+    let count = 0;
+
+    while (i < text.length) {
+      if (text.slice(i, i + 2) === "**") {
+        i += 2;
+        continue;
+      }
+
+      const char = text[i];
+      if (char === "\n" || char === "\r") {
+        i += 1;
+        continue;
+      }
+
+      if (count === plainIndex) return i;
+      i += 1;
+      count += 1;
+    }
+
     return text.length;
   };
 
@@ -290,6 +329,180 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
     }, 0);
   };
 
+  const getRenderedFitPlainIndex = () => {
+    const frame = contentRef.current;
+    const contentNode = contentMeasureRef.current;
+    if (!frame || !contentNode) return null;
+
+    const walker = document.createTreeWalker(
+      contentNode,
+      NodeFilter.SHOW_TEXT,
+      {
+        acceptNode: (node) =>
+          node.textContent && node.textContent.length > 0
+            ? NodeFilter.FILTER_ACCEPT
+            : NodeFilter.FILTER_REJECT,
+      },
+    );
+
+    const segments: Array<{ node: Text; start: number; end: number }> = [];
+    let totalLength = 0;
+    let currentNode = walker.nextNode();
+
+    while (currentNode) {
+      const textNode = currentNode as Text;
+      const textLength = textNode.textContent?.length ?? 0;
+      if (textLength > 0) {
+        segments.push({
+          node: textNode,
+          start: totalLength,
+          end: totalLength + textLength,
+        });
+        totalLength += textLength;
+      }
+      currentNode = walker.nextNode();
+    }
+
+    if (totalLength < 2 || segments.length === 0) return null;
+
+    const locate = (plainIndex: number) => {
+      for (const segment of segments) {
+        if (plainIndex <= segment.end) {
+          return {
+            node: segment.node,
+            offset: Math.max(0, Math.min(segment.node.length, plainIndex - segment.start)),
+          };
+        }
+      }
+
+      const last = segments[segments.length - 1];
+      return { node: last.node, offset: last.node.length };
+    };
+
+    const frameRect = frame.getBoundingClientRect();
+    const range = document.createRange();
+    let low = 1;
+    let high = totalLength - 1;
+    let best = 1;
+
+    while (low <= high) {
+      const mid = Math.floor((low + high) / 2);
+      const end = locate(mid);
+      range.setStart(segments[0].node, 0);
+      range.setEnd(end.node, end.offset);
+      const rects = Array.from(range.getClientRects());
+      const lastRect = rects[rects.length - 1] ?? range.getBoundingClientRect();
+      const fits = lastRect.bottom <= frameRect.bottom - 2;
+
+      if (fits) {
+        best = mid;
+        low = mid + 1;
+      } else {
+        high = mid - 1;
+      }
+    }
+
+    return best;
+  };
+
+  const findBestSplitIndex = (text: string, preferredIndex: number) => {
+    const boundedIndex = Math.max(1, Math.min(text.length - 1, preferredIndex));
+    const minPrefixLength = Math.max(40, Math.floor(text.length * 0.18));
+    const minSuffixLength = Math.max(28, Math.floor(text.length * 0.1));
+
+    const candidates: Array<{ index: number; type: 'paragraph' | 'sentence' | 'clause' }> = [];
+
+    const paragraphMatcher = /\n\s*\n/g;
+    for (const match of text.matchAll(paragraphMatcher)) {
+      const matchIndex = match.index ?? -1;
+      if (matchIndex <= minPrefixLength || text.length - matchIndex <= minSuffixLength) continue;
+      if (matchIndex >= boundedIndex) continue;
+      candidates.push({ index: matchIndex, type: 'paragraph' });
+    }
+
+    let runningIndex = 0;
+    for (const sentence of splitIntoSentences(text)) {
+      runningIndex = text.indexOf(sentence, runningIndex);
+      if (runningIndex === -1) break;
+      const endIndex = runningIndex + sentence.length;
+      if (endIndex > minPrefixLength && text.length - endIndex > minSuffixLength && endIndex < boundedIndex) {
+        candidates.push({ index: endIndex, type: 'sentence' });
+      }
+      runningIndex = endIndex;
+    }
+
+    runningIndex = 0;
+    for (const clause of splitIntoClauses(text)) {
+      runningIndex = text.indexOf(clause, runningIndex);
+      if (runningIndex === -1) break;
+      const endIndex = runningIndex + clause.length;
+      if (endIndex > minPrefixLength && text.length - endIndex > minSuffixLength && endIndex < boundedIndex) {
+        candidates.push({ index: endIndex, type: 'clause' });
+      }
+      runningIndex = endIndex;
+    }
+
+    if (candidates.length === 0) {
+      return splitAtNearestPunctuation(text, boundedIndex / text.length).prefix.length;
+    }
+
+    const typePenalty = {
+      paragraph: 0,
+      sentence: 10,
+      clause: 22,
+    } as const;
+
+    const bestCandidate = candidates.reduce((best, candidate) => {
+      const distance = boundedIndex - candidate.index;
+      const penalty =
+        candidate.type === 'paragraph' && distance > 72
+          ? 90
+          : candidate.type === 'sentence' && distance > 48
+            ? 36
+            : candidate.type === 'clause' && distance > 24
+              ? 14
+              : 0;
+      const score = distance + typePenalty[candidate.type] + penalty;
+      if (!best || score < best.score) {
+        return { candidate, score };
+      }
+      return best;
+    }, null as null | { candidate: { index: number; type: 'paragraph' | 'sentence' | 'clause' }; score: number });
+
+    return bestCandidate?.candidate.index ?? boundedIndex;
+  };
+
+  const getOverflowSplitResult = (): OverflowSplitResult | null => {
+    // When not editing, read directly from props to avoid stale editContent
+    const sourceContent = (isEditing ? editContent : content).trim();
+    if (!sourceContent) return null;
+
+    const plainFitIndex = getRenderedFitPlainIndex();
+    if (!plainFitIndex) return null;
+
+    const sourceFitIndex = visiblePlainIndexToTextIndex(sourceContent, plainFitIndex);
+    const splitIndex = findBestSplitIndex(sourceContent, sourceFitIndex);
+    const keptContent = sourceContent.slice(0, splitIndex).trim();
+    const movedContent = sourceContent.slice(splitIndex).trim();
+
+    if (!keptContent || !movedContent) return null;
+
+    return {
+      keptSegment: {
+        title: editTitle,
+        content: keptContent,
+        layout: currentLayout,
+        image: editImage,
+        imageConfig: editImageConfig,
+      },
+      movedSegment: {
+        title: (editTitle || sectionTitle || "").trim(),
+        content: movedContent,
+        layout: currentLayout === 'cover' ? 'standard' : currentLayout,
+      },
+    };
+  };
+
   useImperativeHandle(ref, () => ({
     element: containerRef.current,
     toggleLayout: toggleLayout,
@@ -319,11 +532,21 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
           setEditContent,
         );
       }
-    }
+    },
+    resolveOverflow: getOverflowSplitResult,
+    isOverflowing: () => isOverflowing,
+    getBodyOccupancy: () => {
+      const frame = contentRef.current;
+      const contentNode = contentMeasureRef.current;
+      if (!frame || !contentNode || isEditing) return 0;
+      if (frame.clientHeight <= 0) return 0;
+      return contentNode.scrollHeight / frame.clientHeight;
+    },
   }));
 
-  // Sync props to state when not editing
-  useEffect(() => {
+  // Sync props to state when not editing — useLayoutEffect ensures state is
+  // up-to-date before the overflow measurement useLayoutEffect fires.
+  useLayoutEffect(() => {
     if (!isEditing) {
       setEditTitle(sectionTitle);
       const sanitizedContent = content ? content.replace(/\\n/g, '\n') : "";
@@ -342,41 +565,32 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
   }, [editImage, editImageConfig, isEditing, onEditChange]);
 
   useLayoutEffect(() => {
-    if (contentRef.current && !isEditing) {
-      const { scrollHeight, clientHeight } = contentRef.current;
+    if (contentRef.current && contentMeasureRef.current && !isEditing) {
+      const { clientHeight } = contentRef.current;
+      const { scrollHeight } = contentMeasureRef.current;
       setIsOverflowing(scrollHeight > clientHeight + 2);
     } else {
       setIsOverflowing(false);
     }
-  }, [editContent, currentLayout, config.fontSize, config.cardScale, config.aspectRatio, config.title, config.authorName, isEditing, config.fontStyle, config.composition, editImage, editImageConfig]);
+  }, [content, editContent, currentLayout, config.fontSize, config.cardScale, config.aspectRatio, config.title, config.authorName, isEditing, config.fontStyle, config.composition, editImage, editImageConfig]);
 
+  useLayoutEffect(() => {
+    const input = contentInputRef.current;
+    if (!input || !isEditing || config.composition !== 'technical') return;
+
+    input.style.height = 'auto';
+    const availableHeight = input.parentElement?.clientHeight ?? input.scrollHeight;
+    input.style.height = `${Math.min(input.scrollHeight, availableHeight)}px`;
+  }, [editContent, isEditing, config.composition]);
 
   const handleSplitCard = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!onSplit || !onUpdate) return;
-    const paragraphs = editContent.split('\n\n');
-    let keptContent = "", movedContent = "";
+    const splitResult = getOverflowSplitResult();
+    if (!splitResult) return;
 
-    if (paragraphs.length > 1) {
-      movedContent = paragraphs.pop() || "";
-      keptContent = paragraphs.join('\n\n');
-    } else {
-      const sentences = editContent.match(/[^.!?]+[.!?]+/g) || [editContent];
-      if (sentences.length > 1) {
-        const splitIndex = Math.floor(sentences.length * 0.7);
-        keptContent = sentences.slice(0, splitIndex).join('').trim();
-        movedContent = sentences.slice(splitIndex).join('').trim();
-      } else {
-        const mid = Math.floor(editContent.length * 0.7);
-        keptContent = editContent.slice(0, mid) + "...";
-        movedContent = "..." + editContent.slice(mid);
-      }
-    }
-
-    if (keptContent && movedContent) {
-      onUpdate({ title: editTitle, content: keptContent, layout: currentLayout, image: editImage, imageConfig: editImageConfig });
-      onSplit(movedContent);
-    }
+    onUpdate(splitResult.keptSegment);
+    onSplit(splitResult.movedSegment);
   };
 
   const getAspectRatioStyle = (ratio: AspectRatio) => {
@@ -417,17 +631,113 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
     );
   };
 
+  const normalizeMarkdownParagraphs = (text: string) => {
+    const lines = text.replace(/\r\n?/g, '\n').split('\n');
+    const blockSyntaxPattern = /^\s*(#{1,6}\s|>|\*{3,}$|-{3,}$|`{3,}|[-+*]\s|\d+\.\s|\|)/;
+    const normalized: string[] = [];
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+
+      if (!trimmed) {
+        normalized.push('');
+        continue;
+      }
+
+      if (blockSyntaxPattern.test(line)) {
+        normalized.push(line);
+        continue;
+      }
+
+      const previousLine = normalized[normalized.length - 1];
+      const previousTrimmed = previousLine?.trim() ?? '';
+      const previousIsPlainText =
+        previousTrimmed && !blockSyntaxPattern.test(previousLine);
+      const currentStartsContinuation = /^[，,、：:）)】\]]/.test(trimmed);
+      const previousEndsParagraph = /[。！？!?；;:：""』」》）)\]]$/.test(
+        previousTrimmed,
+      );
+
+      if (
+        previousIsPlainText &&
+        previousEndsParagraph &&
+        !currentStartsContinuation
+      ) {
+        normalized.push('');
+      }
+
+      normalized.push(line);
+    }
+
+    return normalized.join('\n');
+  };
+
   // Shared Styles
   const isDark = config.colorway === 'neon';
   const gridColor = isDark ? 'bg-white/5' : 'bg-black/5';
   const borderColor = isDark ? 'border-white/10' : 'border-black/10';
   const secondaryTextColor = isDark ? 'text-white/40' : 'text-black/40';
   const inputBgColor = isDark ? 'bg-white/10' : 'bg-black/5';
+  const BODY_TYPOGRAPHY = {
+    fontScale: 0.86,         // ~14px base feel at current standard device scales
+    lineHeight: 2.0,         // Clean, airy line height of 2 as requested
+    letterSpacing: '0.04em', // Approximately 0.5px tracking feel for 14px text
+    paragraphGapEm: 1.5,     // Distinct paragraph breaks
+    sideInset: 20,           // 20px margins on left/right for elegant framing
+    topInset: 28,
+  } as const;
   const chromeScale = config.cardScale || 1;
+  const bodyLineHeight = BODY_TYPOGRAPHY.lineHeight;
   const px = (value: number) => `${Math.round(value * chromeScale)}px`;
   const rem = (value: number) => `${(value * chromeScale).toFixed(3)}rem`;
+  const bodyFontSize = `${(config.fontSize * BODY_TYPOGRAPHY.fontScale).toFixed(3)}rem`;
+  const titleEditBaseStyle: React.CSSProperties = {
+    color: config.textColor,
+    background: 'transparent',
+    padding: 0,
+    margin: 0,
+    border: 'none',
+    outline: 'none',
+    resize: 'none',
+    fontFamily: 'inherit',
+    letterSpacing: 'inherit',
+    wordSpacing: 'inherit',
+    textRendering: 'geometricPrecision',
+    WebkitFontSmoothing: 'antialiased',
+    MozOsxFontSmoothing: 'grayscale',
+    caretColor: config.accentColor,
+  };
+  const bodyEditStyle: React.CSSProperties = {
+    color: config.textColor,
+    background: 'transparent',
+    padding: 0,
+    margin: 0,
+    border: 'none',
+    outline: 'none',
+    resize: 'none',
+    fontFamily: 'inherit',
+    fontSize: 'inherit',
+    fontWeight: 400,
+    lineHeight: 'inherit',
+    letterSpacing: 'inherit',
+    wordSpacing: 'inherit',
+    textAlign: 'justify',
+    textAlignLast: 'left',
+    whiteSpace: 'pre-wrap',
+    overflowWrap: 'break-word',
+    wordBreak: 'break-word',
+    opacity: 0.9,
+    textRendering: 'geometricPrecision',
+    WebkitFontSmoothing: 'antialiased',
+    MozOsxFontSmoothing: 'grayscale',
+    caretColor: config.accentColor,
+    boxSizing: 'border-box',
+    overflowY: 'auto',
+    overflowX: 'hidden',
+  };
 
   const isCover = currentLayout === 'cover';
+  const hasVisibleTitle = isEditing || Boolean(editTitle.trim());
 
   // --- IMAGE RENDERING UTILS ---
   const renderEditableImage = (className: string = "", forceCoverLayout: boolean = false) => {
@@ -525,82 +835,84 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
   const renderMarkdownContent = () => (
     <div 
       ref={contentRef}
-      className={`prose prose-sm max-w-none h-full overflow-hidden ${config.composition === 'technical' ? 'flex flex-col justify-center' : ''}`}
+      className={`max-w-none h-full overflow-hidden ${config.composition === 'technical' ? 'flex flex-col justify-center' : ''}`}
       style={{
-        lineHeight: 1.75,
+        fontSize: 'inherit',
+        fontFamily: 'inherit',
+        lineHeight: 'inherit',
+        fontWeight: 'inherit',
+        letterSpacing: 'inherit',
         opacity: 0.9,
-        '--tw-prose-body': config.textColor,
-        '--tw-prose-headings': config.textColor,
-        '--tw-prose-bold': config.textColor,
-        '--tw-prose-links': config.accentColor,
       } as React.CSSProperties}
     >
-      <ReactMarkdown 
-        components={{
-          p: ({node, ...props}) => <p className="mb-3 last:mb-0 text-justify hyphens-auto font-normal whitespace-pre-line" {...props} />,
-          strong: ({node, ...props}) => <strong className="font-semibold" style={{ color: config.accentColor }} {...props} />,
-          ul: ({node, children, ...props}) => {
-            const validChildren = React.Children.toArray(children).filter(child => React.isValidElement(child));
-            return (
-              <ul className="list-none pl-0 my-2 space-y-1" {...props}>
-                 {validChildren.map((child, index) => {
-                    return React.cloneElement(child as React.ReactElement, { 
-                      key: index,
-                      // @ts-ignore
-                      markerType: 'bullet' 
-                    });
-                 })}
-              </ul>
-            );
-          },
-          ol: ({node, children, ...props}) => {
-            const validChildren = React.Children.toArray(children).filter(child => React.isValidElement(child));
-            return (
-              <ol className="list-none pl-0 my-2 space-y-1" {...props}>
-                 {validChildren.map((child, index) => {
-                    return React.cloneElement(child as React.ReactElement, { 
-                      key: index,
-                      // @ts-ignore
-                      listIndex: index 
-                    });
-                 })}
-              </ol>
-            );
-          },
-          li: ({node, ...props}: any) => {
-            const { listIndex, markerType, children, ...rest } = props;
-            let marker = "";
-            if (typeof listIndex === 'number') {
-               marker = String(listIndex + 1).padStart(2, '0');
-            } else if (markerType === 'bullet') {
-               marker = "–";
-            } else {
-               marker = "•"; 
-            }
-            return (
-              <li className="flex gap-4 items-baseline" {...rest}>
-                  <span className="text-[10px] font-mono opacity-40 shrink-0 select-none w-4 text-right">
-                    {marker}
-                  </span>
-                  <span className="flex-1 min-w-0 block">{children}</span>
-              </li>
-            );
-          },
-          h1: ({node, ...props}) => <strong className="block text-sm font-bold uppercase tracking-widest mb-2 mt-3 opacity-80" {...props} />,
-          h2: ({node, ...props}) => <strong className="block text-sm font-bold uppercase tracking-wide mb-1 mt-3 opacity-80" {...props} />,
-          blockquote: ({node, ...props}) => (
-            <blockquote className="border-l-[3px] pl-5 my-4 italic opacity-75" style={{ borderColor: config.accentColor }} {...props} />
-          ),
-          a: ({node, ...props}) => <span className="underline decoration-1 underline-offset-4 decoration-dotted opacity-80" {...props} />
-        }}
-      >
-        {editContent}
-      </ReactMarkdown>
+      <div ref={contentMeasureRef} className="w-full">
+        <ReactMarkdown 
+          components={{
+            p: ({node, ...props}) => <p className="last:mb-0 hyphens-auto font-normal" style={{ textAlign: 'justify', textAlignLast: 'left', lineHeight: 'inherit', marginBottom: `${BODY_TYPOGRAPHY.paragraphGapEm}em` }} {...props} />,
+            strong: ({node, ...props}) => <strong className="font-semibold" style={{ color: config.accentColor }} {...props} />,
+            ul: ({node, children, ...props}) => {
+              const validChildren = React.Children.toArray(children).filter(child => React.isValidElement(child));
+              return (
+                <ul className="list-none pl-0 my-2 space-y-1" {...props}>
+                   {validChildren.map((child, index) => {
+                      return React.cloneElement(child as React.ReactElement, { 
+                        key: index,
+                        // @ts-ignore
+                        markerType: 'bullet' 
+                      });
+                   })}
+                </ul>
+              );
+            },
+            ol: ({node, children, ...props}) => {
+              const validChildren = React.Children.toArray(children).filter(child => React.isValidElement(child));
+              return (
+                <ol className="list-none pl-0 my-2 space-y-1" {...props}>
+                   {validChildren.map((child, index) => {
+                      return React.cloneElement(child as React.ReactElement, { 
+                        key: index,
+                        // @ts-ignore
+                        listIndex: index 
+                      });
+                   })}
+                </ol>
+              );
+            },
+            li: ({node, ...props}: any) => {
+              const { listIndex, markerType, children, ...rest } = props;
+              let marker = "";
+              if (typeof listIndex === 'number') {
+                 marker = String(listIndex + 1).padStart(2, '0');
+              } else if (markerType === 'bullet') {
+                 marker = "–";
+              } else {
+                 marker = "•"; 
+              }
+              return (
+                <li className="flex gap-4 items-baseline" {...rest}>
+                    <span className="text-[10px] font-mono opacity-40 shrink-0 select-none w-4 text-right">
+                      {marker}
+                    </span>
+                    <span className="flex-1 min-w-0 block">{children}</span>
+                </li>
+              );
+            },
+            h1: ({node, ...props}) => <strong className="block text-sm font-bold uppercase tracking-widest mb-2 mt-3 opacity-80" {...props} />,
+            h2: ({node, ...props}) => <strong className="block text-sm font-bold uppercase tracking-wide mb-1 mt-3 opacity-80" {...props} />,
+            blockquote: ({node, ...props}) => (
+              <blockquote className="border-l-[3px] pl-5 my-4 italic opacity-75" style={{ borderColor: config.accentColor }} {...props} />
+            ),
+            a: ({node, ...props}) => <span className="underline decoration-1 underline-offset-4 decoration-dotted opacity-80" {...props} />
+          }}
+        >
+          {normalizeMarkdownParagraphs(editContent)}
+        </ReactMarkdown>
+      </div>
     </div>
   );
 
   const renderOverflowBtn = () => (
-    isOverflowing && !isEditing && (
+    showOverflowControl && isOverflowing && !isEditing && (
       <div className={`absolute bottom-0 left-0 right-0 h-24 ${isDark ? 'bg-gradient-to-t from-black/90' : 'bg-gradient-to-t from-white/90'} to-transparent flex items-end justify-center pb-4 z-20`}>
           <button 
             onClick={handleSplitCard}
@@ -661,12 +973,12 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
       {/* Body */}
       <div
         className="flex-1 relative flex flex-col overflow-hidden"
-        style={{ padding: px(24), paddingTop: px(32) }}
+        style={{ padding: px(BODY_TYPOGRAPHY.sideInset), paddingTop: px(BODY_TYPOGRAPHY.topInset) }}
       >
-        {!isCover && <div className={`absolute top-0 h-full ${gridColor}`} style={{ left: px(32), width: '1px' }}></div>}
+        {!isCover && <div className={`absolute top-0 h-full ${gridColor}`} style={{ left: px(BODY_TYPOGRAPHY.sideInset + 6), width: '1px' }}></div>}
         <div
           className={`flex-1 relative z-10 flex flex-col h-full ${isCover ? 'justify-center' : ''}`}
-          style={isCover ? undefined : { paddingLeft: px(24) }}
+          style={isCover ? undefined : { paddingLeft: px(BODY_TYPOGRAPHY.sideInset + 4) }}
         >
           {isCover ? (
              <div
@@ -684,8 +996,8 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
                   <div className="shrink-0" style={{ backgroundColor: config.accentColor, width: px(6) }}></div>
                   <div className="flex flex-col w-full justify-center" style={{ gap: px(24) }}>
                      {isEditing ? (
-                        <textarea ref={titleInputRef as React.RefObject<HTMLTextAreaElement>} value={editTitle} onChange={(e) => setEditTitle(e.target.value)} placeholder="ENTER TITLE"
-                          className={`w-full bg-transparent font-bold leading-none outline-none border-b border-dashed border-current/30 ${inputBgColor} ${getFontClass(config.fontStyle)}`} rows={3} style={{ color: config.textColor, resize: 'none', fontSize: rem(2.7), paddingBlock: px(8) }} />
+                        <textarea ref={titleInputRef as React.RefObject<HTMLTextAreaElement>} value={editTitle} onChange={(e) => setEditTitle(e.target.value)} placeholder="ENTER TITLE" spellCheck={false}
+                          className={`w-full font-bold ${getFontClass(config.fontStyle)}`} rows={3} style={{ ...titleEditBaseStyle, fontSize: rem(2.7), lineHeight: 1.05 }} />
                      ) : (
                        <h2 className={`font-bold leading-[1.05] text-left break-words whitespace-pre-wrap ${getFontClass(config.fontStyle)}`} style={{ color: config.textColor, fontSize: rem(2.7) }}>
                         {renderHighlightedTitle(editTitle || "UNTITLED")}
@@ -702,16 +1014,19 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
              </div>
           ) : (
             <>
-              <div className="shrink-0 animate-in fade-in slide-in-from-top-2 duration-300">
-                <div style={{ marginBottom: px(16) }}>
-                  {/* Segment Decoration Removed */}
-                  {isEditing ? (
-                    <input ref={titleInputRef as any} value={editTitle} onChange={(e) => setEditTitle(e.target.value)} placeholder="(No Title)"
-                      className={`w-full bg-transparent font-bold leading-tight outline-none border-b border-dashed border-current/30 ${inputBgColor} placeholder:text-current/20 ${getFontClass(config.fontStyle)}`} style={{ color: config.textColor, fontSize: rem(1.75), paddingBlock: px(4) }} />
-                  ) : ( editTitle && <h2 className={`font-bold leading-tight whitespace-pre-wrap ${getFontClass(config.fontStyle)}`} style={{ color: config.textColor, fontSize: rem(1.75) }}>{editTitle}</h2> )}
+              {hasVisibleTitle && (
+                <div className="shrink-0 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <div style={{ marginBottom: px(16) }}>
+                    {isEditing ? (
+                      <input ref={titleInputRef as any} value={editTitle} onChange={(e) => setEditTitle(e.target.value)} placeholder="(No Title)" spellCheck={false}
+                        className={`w-full font-bold leading-tight placeholder:text-current/20 ${getFontClass(config.fontStyle)}`} style={{ ...titleEditBaseStyle, fontSize: rem(1.75), lineHeight: 'inherit' }} />
+                    ) : (
+                      <h2 className={`font-bold leading-tight whitespace-pre-wrap ${getFontClass(config.fontStyle)}`} style={{ color: config.textColor, fontSize: rem(1.75) }}>{editTitle}</h2>
+                    )}
+                  </div>
+                  <div className="opacity-20 shrink-0" style={{ backgroundColor: config.accentColor, width: px(48), height: '2px', marginBottom: px(20) }}></div>
                 </div>
-                {(isEditing || editTitle) && <div className="opacity-20 shrink-0" style={{ backgroundColor: config.accentColor, width: px(48), height: '2px', marginBottom: px(24) }}></div>}
-              </div>
+              )}
               
               {/* Body Content with dynamic image position */}
               <div className={`flex-1 min-h-0 relative flex ${isHorizontal ? 'flex-row' : 'flex-col'}`} style={isHorizontal ? { gap: px(24) } : undefined}>
@@ -719,8 +1034,8 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
                  {editImageConfig.position === 'left' && renderEditableImage("h-full rounded-sm")}
                  {editImageConfig.position === 'top' && renderEditableImage("w-full mb-6 rounded-sm")}
 
-                 <div className="flex-1 min-h-0 relative" style={{ fontSize: `${config.fontSize}rem`, color: config.textColor }}>
-                    {isEditing ? <textarea ref={contentInputRef} value={editContent} onChange={(e) => setEditContent(e.target.value)} className={`w-full h-full bg-transparent resize-none outline-none p-2 rounded leading-relaxed text-sm opacity-90 ${inputBgColor}`} style={{ color: config.textColor }} /> : renderMarkdownContent()}
+                 <div className="flex-1 min-h-0 relative" style={{ fontSize: bodyFontSize, lineHeight: bodyLineHeight, letterSpacing: BODY_TYPOGRAPHY.letterSpacing, color: config.textColor }}>
+                    {isEditing ? <textarea ref={contentInputRef} value={editContent} onChange={(e) => setEditContent(e.target.value)} className="w-full h-full resize-none" style={bodyEditStyle} /> : renderMarkdownContent()}
                     {renderOverflowBtn()}
                  </div>
 
@@ -808,7 +1123,7 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
          )}
 
          {isCover ? (
-           <div className="flex-1 flex flex-col relative z-10" style={{ padding: px(24) }}>
+           <div className="flex-1 flex flex-col relative z-10" style={{ padding: px(BODY_TYPOGRAPHY.sideInset + 2) }}>
               <div className="flex items-center gap-1 opacity-20" style={{ marginBottom: px(32) }}>
                   <div className="bg-current" style={{ width: '1px', height: px(16) }}></div>
                   <div className="border border-current" style={{ width: '1px', height: px(16) }}></div>
@@ -821,8 +1136,8 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
 
                  <div className={`flex-1 flex flex-col justify-center ${isHorizontal ? '' : 'mb-8'}`}>
                     {isEditing ? (
-                       <textarea ref={titleInputRef as React.RefObject<HTMLTextAreaElement>} value={editTitle} onChange={(e) => setEditTitle(e.target.value)} 
-                         className={`w-full bg-transparent font-bold uppercase tracking-tighter outline-none ${inputBgColor} leading-[1.0]`} rows={4} style={{ color: config.textColor, resize: 'none', fontSize: rem(3.4) }} />
+                       <textarea ref={titleInputRef as React.RefObject<HTMLTextAreaElement>} value={editTitle} onChange={(e) => setEditTitle(e.target.value)} spellCheck={false}
+                         className="w-full font-bold uppercase tracking-tighter leading-[1.0]" rows={4} style={{ ...titleEditBaseStyle, fontSize: rem(3.4), lineHeight: 1 }} />
                     ) : (
                       <h1 className="font-bold uppercase tracking-tighter leading-[1.0] break-words hyphens-auto whitespace-pre-wrap" style={{ fontSize: rem(3.4) }}>
                         {renderHighlightedTitle(editTitle || "UNTITLED")}
@@ -861,19 +1176,20 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
               </div>
 
               {/* Main Content Area */}
-              <div className="flex-1 flex flex-col min-h-0" style={{ padding: px(24) }}>
-                 {/* Section Title Block */}
+              <div className="flex-1 flex flex-col min-h-0" style={{ padding: px(BODY_TYPOGRAPHY.sideInset + 2) }}>
+                 {hasVisibleTitle && (
                    <div className="shrink-0 flex items-center justify-between border-b border-current/20" style={{ marginBottom: px(16), paddingBottom: px(8), minHeight: px(32) }}>
-                    {isEditing ? (
-                       <input ref={titleInputRef as any} value={editTitle} onChange={(e) => setEditTitle(e.target.value)} 
-                        className={`bg-transparent font-bold uppercase tracking-tight w-full outline-none ${inputBgColor}`} style={{ color: config.textColor, fontSize: rem(1.25) }} placeholder="DATA BLOCK" />
-                    ) : ( editTitle && (
+                     {isEditing ? (
+                       <input ref={titleInputRef as any} value={editTitle} onChange={(e) => setEditTitle(e.target.value)} spellCheck={false}
+                         className="font-bold uppercase tracking-tight w-full" style={{ ...titleEditBaseStyle, fontSize: rem(1.25), lineHeight: 'inherit' }} placeholder="DATA BLOCK" />
+                     ) : (
                        <h2 className="font-bold uppercase tracking-tight leading-none" style={{ fontSize: rem(1.25) }}>
-                        {renderHighlightedTitle(editTitle)}
+                         {renderHighlightedTitle(editTitle)}
                        </h2>
-                    ))}
-                    <div className="opacity-100" style={{ backgroundColor: config.accentColor, width: px(10), height: px(10) }}></div>
-                 </div>
+                     )}
+                     <div className="opacity-100" style={{ backgroundColor: config.accentColor, width: px(10), height: px(10) }}></div>
+                   </div>
+                 )}
                  
                  {/* Technical Image Body */}
                  <div className={`flex-1 flex min-h-0 ${isHorizontal ? 'flex-row gap-4' : 'flex-col'}`}>
@@ -895,9 +1211,9 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
                     )}
 
                     {/* Text Body */}
-                    <div className={`flex-1 min-h-0 relative flex flex-col justify-center leading-relaxed ${getFontClass(config.fontStyle)}`} style={{ fontSize: `${config.fontSize}rem`, color: config.textColor }}>
+                    <div className={`flex-1 min-h-0 relative flex flex-col justify-center ${getFontClass(config.fontStyle)}`} style={{ fontSize: bodyFontSize, lineHeight: bodyLineHeight, letterSpacing: BODY_TYPOGRAPHY.letterSpacing, color: config.textColor }}>
                        {isEditing ? (
-                         <textarea ref={contentInputRef} value={editContent} onChange={(e) => setEditContent(e.target.value)} className={`w-full h-full bg-transparent resize-none outline-none p-2 ${inputBgColor}`} style={{ color: config.textColor }} />
+                         <textarea ref={contentInputRef} value={editContent} onChange={(e) => setEditContent(e.target.value)} className="w-full max-h-full resize-none" style={bodyEditStyle} />
                        ) : renderMarkdownContent()}
                        {renderOverflowBtn()}
                     </div>

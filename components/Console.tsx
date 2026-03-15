@@ -35,6 +35,7 @@ interface ConsoleProps {
   activeImageConfig: ImageConfig | null;
   onUpdateImageConfig: (updates: Partial<ImageConfig>) => void;
   onRemoveImage: () => void;
+  capacityFeedback?: string | null;
   onHeightChange?: (height: number) => void;
 }
 
@@ -52,6 +53,7 @@ export const Console: React.FC<ConsoleProps> = ({
   onToggleLayout, onStartEdit, onSaveEdit, onCancelEdit, onTriggerImage, 
   onDownload, onToggleHighlight,
   activeHasImage, activeImageConfig, onUpdateImageConfig, onRemoveImage,
+  capacityFeedback,
   onHeightChange
 }) => {
   const [activeTab, setActiveTab] = useState<TabId>('style');
@@ -155,7 +157,7 @@ export const Console: React.FC<ConsoleProps> = ({
   const hasActiveCard = activeCardIndex !== null;
 
   return (
-    <div ref={containerRef} className="fixed bottom-6 left-1/2 -translate-x-1/2 w-full max-w-[640px] bg-white/95 backdrop-blur-xl border border-black/5 rounded-2xl shadow-2xl overflow-hidden flex flex-col z-50 ring-1 ring-black/5">
+    <div ref={containerRef} className="fixed bottom-6 left-1/2 -translate-x-1/2 w-full max-w-[640px] h-[224px] bg-white/95 backdrop-blur-xl border border-black/5 rounded-2xl shadow-2xl overflow-hidden flex flex-col z-50 ring-1 ring-black/5">
       
       {/* --- TOP BAR --- */}
       <div className="h-11 border-b border-black/5 flex items-center justify-between px-2">
@@ -203,7 +205,12 @@ export const Console: React.FC<ConsoleProps> = ({
       </div>
 
       {/* --- CONTENT --- */}
-      <div className="max-h-[45vh] overflow-y-auto custom-scrollbar">
+      <div className="flex-1 overflow-y-auto custom-scrollbar">
+        {capacityFeedback && (
+          <div className="px-5 py-2 border-b border-black/5 bg-[#fff7ed] text-[10px] font-bold uppercase tracking-[0.18em] text-[#9a3412]">
+            {capacityFeedback}
+          </div>
+        )}
         
         {/* ═══════ STYLE TAB ═══════ */}
         {activeTab === 'style' && (
