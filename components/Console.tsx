@@ -40,8 +40,16 @@ interface ConsoleProps {
 }
 
 const COLORWAYS: Preset[] = [
-  { id: 'snow', name: 'Snow', config: { colorway: 'snow', backgroundColor: '#f4f4f5', textColor: '#18181b', accentColor: '#ea580c' } },
-  { id: 'neon', name: 'Neon', config: { colorway: 'neon', backgroundColor: '#111111', textColor: '#ffffff', accentColor: '#ccff00' } },
+  { id: 'snow', name: 'Snow', config: { colorway: 'snow', backgroundColor: '#f4f4f5', textColor: '#18181b' } },
+  { id: 'neon', name: 'Neon', config: { colorway: 'neon', backgroundColor: '#111111', textColor: '#ffffff' } },
+];
+
+const ACCENT_COLORS = [
+  { id: 'poster-purple', hex: '#8b579c' },
+  { id: 'poster-red', hex: '#f02d1a' },
+  { id: 'poster-green', hex: '#b8ff12' },
+  { id: 'poster-pink', hex: '#f5a3b7' },
+  { id: 'poster-blue', hex: '#4a67b5' },
 ];
 
 type TabId = 'style' | 'editor' | 'source';
@@ -227,14 +235,29 @@ export const Console: React.FC<ConsoleProps> = ({
                    </div>
                 </div>
                 <div className="flex flex-col gap-2 shrink-0">
+                   <label className="text-[9px] font-bold uppercase tracking-wider opacity-40 pl-0.5">Mode</label>
+                   <div className="flex bg-black/[0.03] p-0.5 rounded-lg gap-0.5">
+                     {COLORWAYS.map(c => (
+                       <button key={c.id} onClick={() => setConfig(prev => ({...prev, ...c.config}))} className={`h-8 w-8 rounded-md flex items-center justify-center transition-all ${config.colorway === c.id ? 'bg-white shadow-sm' : 'hover:bg-white/50'}`} title={c.name}>
+                          <div className="w-3.5 h-3.5 rounded-full border border-black/10" style={{ backgroundColor: c.config.backgroundColor }}></div>
+                       </button>
+                     ))}
+                   </div>
+                </div>
+                <div className="flex flex-col gap-2 shrink-0">
                    <label className="text-[9px] font-bold uppercase tracking-wider opacity-40 pl-0.5">Palette</label>
                    <div className="flex items-center gap-2">
                       <div className="flex bg-black/[0.03] p-0.5 rounded-lg gap-0.5">
-                        {COLORWAYS.map(c => (
-                          <button key={c.id} onClick={() => setConfig(prev => ({...prev, ...c.config}))} className={`h-8 w-8 rounded-md flex items-center justify-center transition-all ${config.colorway === c.id ? 'bg-white shadow-sm' : 'hover:bg-white/50'}`} title={c.name}>
-                             <div className="w-3.5 h-3.5 rounded-full border border-black/10" style={{ backgroundColor: c.id === 'neon' ? c.config.accentColor : c.config.backgroundColor }}></div>
-                          </button>
-                        ))}
+                         {ACCENT_COLORS.map(color => (
+                            <button
+                               key={color.id}
+                               onClick={() => updateConfig('accentColor', color.hex)}
+                               className={`h-8 w-8 rounded-md flex items-center justify-center transition-all ${config.accentColor.toLowerCase() === color.hex.toLowerCase() ? 'bg-white shadow-sm' : 'hover:bg-white/50'}`}
+                               title={color.id}
+                            >
+                               <div className="w-3.5 h-3.5 rounded-full border border-black/10" style={{ backgroundColor: color.hex }}></div>
+                            </button>
+                         ))}
                       </div>
                       <div className="flex items-center gap-1.5 bg-black/[0.03] rounded-lg px-2.5 h-9">
                         <div className="w-3 h-3 rounded-full shrink-0 border border-black/10" style={{ backgroundColor: config.accentColor }}></div>

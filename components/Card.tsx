@@ -1066,6 +1066,7 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
   const renderTechnical = () => {
     const baseFont = getFontClass(); 
     const isHorizontal = editImageConfig.position === 'left' || editImageConfig.position === 'right';
+    const technicalBadgeTextColor = config.colorway === 'neon' ? '#000000' : '#ffffff';
     
     // Helper to render the framed technical image
     const renderTechnicalImage = (marginTop = false) => {
@@ -1075,12 +1076,12 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
 
        return editImage && (
          <div className={wrapperClass}>
-            <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-current"></div>
+            <div className="absolute top-0 left-0 w-2 h-2 border-t border-l" style={{ borderColor: config.accentColor }}></div>
             <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-current"></div>
             <div className="absolute bottom-0 left-0 w-2 h-2 border-b border-l border-current"></div>
-            <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-current"></div>
+            <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r" style={{ borderColor: config.accentColor }}></div>
             {renderEditableImage(isHorizontal ? "h-full" : "w-full filter grayscale-[0.2]", true)}
-            <div className="absolute bottom-1 right-2 bg-black text-white text-[8px] px-1 font-mono uppercase">Fig. 00</div>
+            <div className="absolute bottom-1 right-2 text-[8px] px-1 font-mono uppercase" style={{ backgroundColor: config.accentColor, color: technicalBadgeTextColor }}>Fig. 00</div>
          </div>
        );
     };
@@ -1100,10 +1101,19 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
            }}
          >
             <div className="flex gap-4 items-baseline">
-               <span className="opacity-30">/</span>
+               <span style={{ color: config.accentColor }}>/</span>
                <span>{isFirst ? "PROJECT" : (config.title || "Project")}</span>
             </div>
-            <div className={`font-mono text-white font-bold uppercase`} style={{ backgroundColor: config.accentColor, fontSize: px(9), paddingInline: px(4), paddingBlock: px(2) }}>
+            <div
+              className="font-mono font-bold uppercase"
+              style={{
+                backgroundColor: config.accentColor,
+                color: technicalBadgeTextColor,
+                fontSize: px(9),
+                paddingInline: px(4),
+                paddingBlock: px(2),
+              }}
+            >
                RUN_{new Date().getFullYear()}
             </div>
          </div>
@@ -1114,8 +1124,8 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
               className={`absolute bottom-2 right-5 font-bold tracking-tighter leading-[0.8] select-none pointer-events-none z-0 transition-opacity duration-300`}
               style={{ 
                  fontSize: rem(8), 
-                 color: isCover ? config.accentColor : 'currentColor',
-                 opacity: isCover ? 1 : 0.05 
+                 color: config.accentColor,
+                 opacity: isCover ? 1 : (isDark ? 0.4 : 0.08) 
               }}
            >
               {displayIndex}
@@ -1124,10 +1134,10 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
 
          {isCover ? (
            <div className="flex-1 flex flex-col relative z-10" style={{ padding: px(BODY_TYPOGRAPHY.sideInset + 2) }}>
-              <div className="flex items-center gap-1 opacity-20" style={{ marginBottom: px(32) }}>
-                  <div className="bg-current" style={{ width: '1px', height: px(16) }}></div>
-                  <div className="border border-current" style={{ width: '1px', height: px(16) }}></div>
-                  <div className="h-[1px] bg-current ml-2" style={{ width: px(96) }}></div>
+              <div className="flex items-center gap-1 opacity-80" style={{ marginBottom: px(32) }}>
+                  <div style={{ backgroundColor: config.accentColor, width: px(4), height: px(16) }}></div>
+                  <div className="bg-current opacity-20" style={{ width: '1px', height: px(16) }}></div>
+                  <div className="h-[1px] bg-current opacity-20 ml-2" style={{ width: px(96) }}></div>
               </div>
 
               <div className={`flex-1 flex ${isHorizontal ? 'flex-row' : 'flex-col'}`} style={isHorizontal ? { gap: px(32) } : undefined}>
@@ -1154,9 +1164,9 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
                     <span className="opacity-50">Design Build</span>
                     <span>{config.authorName || "SYS_OP"}</span>
                  </div>
-                 <div className="flex items-center gap-2 opacity-20" style={{ gap: px(8) }}>
-                     <div className="h-[1px] bg-current" style={{ width: px(48) }}></div>
-                     <div className="bg-current" style={{ width: px(10), height: px(10) }}></div>
+                 <div className="flex items-center gap-2" style={{ gap: px(8) }}>
+                     <div className="h-[1px] bg-current opacity-20" style={{ width: px(48) }}></div>
+                     <div style={{ backgroundColor: config.accentColor, width: px(10), height: px(10) }}></div>
                  </div>
               </div>
            </div>
@@ -1167,11 +1177,11 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
               <div className="border-r border-current/20 flex flex-col items-center shrink-0 relative overflow-hidden bg-inherit" style={{ width: px(40), paddingBlock: px(24) }}>
                   <div className="absolute inset-0 opacity-5 pointer-events-none" 
                      style={{backgroundImage: `radial-gradient(circle, currentColor 1px, transparent 1px)`, backgroundSize: '4px 4px'}}></div>
-                 <div className="bg-current rounded-full opacity-50" style={{ width: px(4), height: px(4), marginBottom: px(16) }}></div>
+                 <div style={{ backgroundColor: config.accentColor, width: px(4), height: px(4), marginBottom: px(16) }}></div>
                  <div className="w-[1px] bg-current opacity-20" style={{ height: px(48) }}></div>
                  <div className="flex-1"></div>
-                 <div className="border border-current opacity-30 rounded-full flex items-center justify-center" style={{ width: px(12), height: px(12) }}>
-                    <div className="bg-current rounded-full" style={{ width: px(2), height: px(2) }}></div>
+                 <div className="border opacity-50 rounded-full flex items-center justify-center" style={{ width: px(12), height: px(12), borderColor: config.accentColor }}>
+                    <div className="rounded-full" style={{ width: px(4), height: px(4), backgroundColor: config.accentColor }}></div>
                  </div>
               </div>
 
@@ -1187,7 +1197,6 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
                          {renderHighlightedTitle(editTitle)}
                        </h2>
                      )}
-                     <div className="opacity-100" style={{ backgroundColor: config.accentColor, width: px(10), height: px(10) }}></div>
                    </div>
                  )}
                  
@@ -1205,7 +1214,7 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
                            {renderEditableImage("w-full")}
                            <div className="flex justify-between items-center mt-1 px-1">
                               <span className="font-mono uppercase opacity-50" style={{ fontSize: px(8) }}>Visual Data</span>
-                              <span className="font-mono uppercase opacity-50" style={{ fontSize: px(8) }}>FIG.{displayIndex}</span>
+                              <span className="font-mono uppercase" style={{ fontSize: px(8), color: config.accentColor }}>FIG.{displayIndex}</span>
                            </div>
                        </div>
                     )}
@@ -1229,7 +1238,7 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
                            {renderEditableImage("w-full")}
                            <div className="flex justify-between items-center mt-1 px-1">
                               <span className="font-mono uppercase opacity-50" style={{ fontSize: px(8) }}>Visual Data</span>
-                              <span className="font-mono uppercase opacity-50" style={{ fontSize: px(8) }}>FIG.{displayIndex}</span>
+                              <span className="font-mono uppercase" style={{ fontSize: px(8), color: config.accentColor }}>FIG.{displayIndex}</span>
                            </div>
                        </div>
                     )}

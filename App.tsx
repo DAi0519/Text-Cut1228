@@ -10,7 +10,7 @@ import {
 } from "./types";
 import { splitTextIntoCards } from "./services/geminiService";
 import { toPng } from "html-to-image";
-import { Sparkles, ArrowRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 
 const CAPACITY_REGEN_DEBOUNCE_MS = 700;
 const VALID_COMPOSITIONS = new Set(["classic", "technical"]);
@@ -85,6 +85,18 @@ const FLOW_FILL_THRESHOLD = 0.92; // absorb next card when below this occupancy
 
 const clamp = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value));
+
+const getPreviewFontClass = (style: FontStyle) => {
+  switch (style) {
+    case FontStyle.CHILL:
+      return "font-chill";
+    case FontStyle.OPPO:
+      return "font-oppo";
+    case FontStyle.SWEI:
+    default:
+      return "font-swei";
+  }
+};
 
 const normalizeSourceText = (text: string) => text.replace(/\r\n?/g, "\n");
 
@@ -1233,33 +1245,29 @@ const App: React.FC = () => {
         {!hasContent ? (
           // --- HERO INPUT MODE ---
           <div className="absolute inset-0 flex flex-col items-center justify-center p-6 animate-in fade-in zoom-in-95 duration-700">
-            <div className="w-full max-w-5xl flex flex-col items-center gap-16">
+            <div className="w-full max-w-5xl flex flex-col items-center gap-14">
               
               {/* Slogan */}
-              <div className="text-center space-y-8">
-                <h1 className="text-5xl md:text-8xl font-bold tracking-tighter text-[#18181b] leading-none text-nowrap">
+              <div className="text-center">
+                <h1 className="text-5xl md:text-7xl font-bold tracking-tighter text-[#18181b] leading-[0.94] text-nowrap">
                   Quantity produces quality
                   <span className="text-[#ea580c]">.</span>
                 </h1>
-                <p className="text-lg text-black/40 font-medium tracking-wide">
-                  Turn your thoughts into elegant cards instantly.
-                </p>
               </div>
 
               {/* Hero Input Area */}
-              <div className="w-full max-w-3xl relative group">
-                <div className="relative bg-white rounded-3xl shadow-xl shadow-black/5 border border-black/5 overflow-hidden flex flex-col transition-all duration-300 focus-within:shadow-2xl focus-within:border-black/10 focus-within:translate-y-[-2px]">
+              <div className="w-full max-w-4xl relative group">
+                <div className="relative bg-white rounded-3xl shadow-[0_18px_44px_-24px_rgba(15,23,42,0.14)] border border-black/[0.06] overflow-hidden flex flex-col transition-all duration-300 focus-within:shadow-[0_24px_56px_-26px_rgba(15,23,42,0.18)] focus-within:border-black/10 focus-within:translate-y-[-2px]">
                   
                   {/* Metadata Inputs */}
-                  <div className="flex border-b border-black/5 bg-gray-50/50">
+                  <div className="flex border-b border-black/[0.06] bg-white">
                     <div className="flex-1 border-r border-black/5 flex items-center px-6">
                       <span className="text-[10px] font-bold uppercase tracking-wider text-black/30 shrink-0 select-none w-12">Title</span>
                       <input
                         type="text"
                         value={config.title}
                         onChange={(e) => setConfig(prev => ({ ...prev, title: e.target.value }))}
-                        placeholder="Optional"
-                        className="w-full h-12 bg-transparent text-sm font-medium outline-none text-black/80 placeholder:text-black/20 tracking-wide px-2 font-serif"
+                        className={`w-full h-12 bg-transparent text-base font-semibold outline-none text-black/80 placeholder:text-black/20 tracking-[0.01em] px-2 ${getPreviewFontClass(config.fontStyle)}`}
                       />
                     </div>
                     <div className="w-1/3 flex items-center px-6">
@@ -1268,8 +1276,7 @@ const App: React.FC = () => {
                         type="text"
                         value={config.authorName}
                         onChange={(e) => setConfig(prev => ({ ...prev, authorName: e.target.value }))}
-                        placeholder="Optional"
-                        className="w-full h-12 bg-transparent text-sm font-medium outline-none text-black/80 placeholder:text-black/20 tracking-wide px-2 font-serif"
+                        className={`w-full h-12 bg-transparent text-sm font-medium outline-none text-black/80 placeholder:text-black/20 tracking-[0.01em] px-2 ${getPreviewFontClass(config.fontStyle)}`}
                       />
                     </div>
                   </div>
@@ -1278,27 +1285,30 @@ const App: React.FC = () => {
                     value={inputText}
                     onChange={(e) => setInputText(e.target.value)}
                     placeholder="Paste your article or notes here..."
-                    className="w-full h-48 p-8 text-xl text-black/90 placeholder:text-black/20 outline-none resize-none bg-transparent leading-relaxed font-serif tracking-wide selection:bg-orange-100"
+                    className="w-full h-52 px-8 py-7 text-xl text-black/90 placeholder:text-black/20 outline-none resize-none bg-transparent leading-relaxed font-serif tracking-wide selection:bg-orange-100"
                     spellCheck={false}
                   />
                   
                   {/* Action Bar */}
-                  <div className="absolute bottom-6 right-6">
+                  <div className="flex justify-end border-t border-black/[0.06] bg-white px-6 py-4">
                      <button
                         onClick={handleProcess}
                         disabled={!inputText.trim() || isProcessing}
                         className={`
-                          h-12 w-12 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg
-                          ${!inputText.trim() 
-                            ? "bg-black/5 text-black/10 cursor-not-allowed shadow-none scale-90" 
-                            : "bg-black text-white hover:bg-[#ea580c] hover:scale-110 active:scale-95 hover:shadow-orange-500/30"
+                          h-12 rounded-2xl px-5 flex items-center justify-center gap-3 transition-all duration-300
+                          ${!inputText.trim() || isProcessing
+                            ? "bg-black/[0.03] text-black/25 cursor-not-allowed"
+                            : "bg-black text-white hover:bg-[#ea580c] active:scale-[0.98]"
                           }
                         `}
                      >
+                        <span className="text-[11px] font-bold uppercase tracking-[0.2em]">
+                          {isProcessing ? "Processing" : "Generate Cards"}
+                        </span>
                         {isProcessing ? (
-                          <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                          <div className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin"></div>
                         ) : (
-                          <ArrowRight size={20} strokeWidth={2.5} />
+                          <ArrowRight size={18} strokeWidth={2.5} />
                         )}
                      </button>
                   </div>
