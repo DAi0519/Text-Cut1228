@@ -5,7 +5,7 @@ import {
   ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Square, RectangleHorizontal, 
   RectangleVertical, ScanLine, ZoomIn, Trash2, X, Check, Pencil, 
   LayoutTemplate, Image as ImageIcon, ArrowDownToLine, Download, Play, Minus, Plus, Settings2,
-  FileText, Sparkles, Move, ChevronDown, Layers
+  FileText, Sparkles, Move, ChevronDown, Layers, CircleUserRound
 } from 'lucide-react';
 
 interface ConsoleProps {
@@ -28,6 +28,7 @@ interface ConsoleProps {
   onSaveEdit: () => void;
   onCancelEdit: () => void;
   onTriggerImage: () => void;
+  onTriggerAvatarUpload: () => void;
   onDownload: () => void;
   onToggleHighlight: () => void;
   
@@ -58,8 +59,8 @@ export const Console: React.FC<ConsoleProps> = ({
   inputText, setInputText, config, setConfig, isProcessing, onProcess, 
   onDownloadAll, hasContent, zoomLevel, setZoomLevel,
   activeCardIndex, editingIndex,
-  onToggleLayout, onStartEdit, onSaveEdit, onCancelEdit, onTriggerImage, 
-  onDownload, onToggleHighlight,
+  onToggleLayout, onStartEdit, onSaveEdit, onCancelEdit, onTriggerImage,
+  onTriggerAvatarUpload, onDownload, onToggleHighlight,
   activeHasImage, activeImageConfig, onUpdateImageConfig, onRemoveImage,
   capacityFeedback,
   onHeightChange
@@ -135,6 +136,7 @@ export const Console: React.FC<ConsoleProps> = ({
   const compositions: { value: Composition, label: string }[] = [
     { value: 'classic', label: 'Classic' },
     { value: 'technical', label: 'Tech' },
+    { value: 'editorial', label: 'Edito' },
   ];
 
   const positionLabels: Record<string, string> = { top: 'Top', bottom: 'Bottom', left: 'Left', right: 'Right' };
@@ -319,6 +321,26 @@ export const Console: React.FC<ConsoleProps> = ({
                    />
                 </div>
              </div>
+             {/* Editorial Title Scale — only visible when editorial theme is active */}
+             {config.composition === 'editorial' && (
+               <div className="grid grid-cols-1 gap-4 mt-4">
+                 <div className="flex flex-col gap-2">
+                   <div className="flex items-center justify-between">
+                      <label className="text-[9px] font-bold uppercase tracking-wider opacity-40 pl-0.5">Title Scale</label>
+                      <span className="text-[10px] font-mono opacity-50">{(config.editorialTitleScale || 1).toFixed(2)}×</span>
+                   </div>
+                   <input
+                     type="range"
+                     min="0.6"
+                     max="1.6"
+                     step="0.05"
+                     value={config.editorialTitleScale || 1}
+                     onChange={(e) => updateConfig('editorialTitleScale', parseFloat(e.target.value))}
+                     className="w-full h-1.5 bg-black/10 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:bg-black [&::-webkit-slider-thumb]:rounded-full hover:[&::-webkit-slider-thumb]:scale-110 transition-all"
+                   />
+                 </div>
+               </div>
+             )}
           </div>
         )}
 
@@ -344,6 +366,16 @@ export const Console: React.FC<ConsoleProps> = ({
                         <span className="text-[10px] font-bold uppercase tracking-wide">{activeHasImage ? "Replace Image" : "Add Image"}</span>
                      </button>
                   </div>
+
+                  {/* Editorial-only: Avatar upload */}
+                  {config.composition === 'editorial' && (
+                    <div className="mt-3">
+                      <button onClick={onTriggerAvatarUpload} className="h-10 w-full bg-black/[0.03] rounded-lg flex items-center justify-center gap-2 hover:bg-black/[0.06] transition-all text-black/60 hover:text-black group">
+                        <CircleUserRound size={16} className="group-hover:scale-110 transition-transform" />
+                        <span className="text-[10px] font-bold uppercase tracking-wide">{config.authorAvatar ? "Replace Avatar" : "Upload Avatar"}</span>
+                      </button>
+                    </div>
+                  )}
 
                   {/* Image Tuning - Expands below when image exists */}
                   {activeHasImage && activeImageConfig && (

@@ -13,7 +13,7 @@ import { toPng } from "html-to-image";
 import { ArrowRight } from "lucide-react";
 
 const CAPACITY_REGEN_DEBOUNCE_MS = 700;
-const VALID_COMPOSITIONS = new Set(["classic", "technical"]);
+const VALID_COMPOSITIONS = new Set(["classic", "technical", "editorial"]);
 const VALID_ASPECT_RATIOS = new Set([
   AspectRatio.PORTRAIT,
   AspectRatio.SQUARE,
@@ -218,6 +218,13 @@ const normalizeConfig = (
       merged.cardScale <= 1.5
         ? merged.cardScale
         : defaults.cardScale,
+    editorialTitleScale:
+      typeof merged.editorialTitleScale === "number" &&
+      Number.isFinite(merged.editorialTitleScale) &&
+      merged.editorialTitleScale >= 0.6 &&
+      merged.editorialTitleScale <= 1.6
+        ? merged.editorialTitleScale
+        : defaults.editorialTitleScale,
   };
 };
 
@@ -289,6 +296,7 @@ const App: React.FC = () => {
       aspectRatio: AspectRatio.PORTRAIT,
       fontSize: 1.05,
       cardScale: 1.35,
+      editorialTitleScale: 1.0,
       showMetadata: true,
       title: "",
       authorName: "",
@@ -310,6 +318,7 @@ const App: React.FC = () => {
 
   // --- Image Upload Refs ---
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
   const activeCardIndexForUpload = useRef<number | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<(CardHandle | null)[]>([]);
@@ -854,6 +863,16 @@ const App: React.FC = () => {
 
   const handleUpdateCard = (index: number, updatedSegment: CardSegment) => {
     setHasCardEditsSinceGenerate(true);
+    // Handle editorial cover card special updates
+    const raw = updatedSegment as any;
+    if (raw._avatarUpload) {
+      setConfig(prev => ({ ...prev, authorAvatar: raw._avatarUpload }));
+      delete raw._avatarUpload;
+    }
+    if (raw._authorNameUpdate !== undefined) {
+      setConfig(prev => ({ ...prev, authorName: raw._authorNameUpdate }));
+      delete raw._authorNameUpdate;
+    }
     setCards((prev) => {
       const newCards = [...prev];
       newCards[index] = updatedSegment;
@@ -1002,6 +1021,22 @@ const App: React.FC = () => {
       reader.readAsDataURL(file);
     }
     if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const triggerAvatarUpload = () => {
+    avatarInputRef.current?.click();
+  };
+
+  const handleAvatarFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const result = ev.target?.result as string;
+      setConfig(prev => ({ ...prev, authorAvatar: result }));
+    };
+    reader.readAsDataURL(file);
+    if (avatarInputRef.current) avatarInputRef.current.value = "";
   };
 
   const handleUpdateImageConfig = (updates: Partial<ImageConfig>) => {
@@ -1219,12 +1254,20 @@ const App: React.FC = () => {
   // --- Render ---
   return (
     <div className="relative h-screen w-full overflow-hidden bg-[#fafafa] font-sans text-[#18181b] flex flex-col">
-      {/* Hidden File Input */}
+      {/* Hidden File Input — background image */}
       <input
         type="file"
         ref={fileInputRef}
         onChange={handleFileChange}
         accept="image/png, image/jpeg, image/jpg"
+        className="hidden"
+      />
+      {/* Hidden File Input — avatar upload */}
+      <input
+        type="file"
+        ref={avatarInputRef}
+        onChange={handleAvatarFileChange}
+        accept="image/png, image/jpeg, image/jpg, image/webp"
         className="hidden"
       />
 
@@ -1343,7 +1386,7 @@ const App: React.FC = () => {
                       }`}
                     >
                       <div
-                        className={`relative rounded-2xl shadow-xl bg-white mx-auto overflow-hidden ring-1 ring-black/5 transition-transform duration-300 will-change-transform ${isScrolling ? 'pointer-events-none' : ''}`}
+                        className={`relative rounded-2xl shadow-xl bg-white mx-auto overflow-hidden ring-1 ring-black/5 transition-transform duration-300 will-change-transform ${isScrolling && editingIndex !== idx ? 'pointer-events-none' : ''}`}
                         style={{
                           ...getCardStyle(config.aspectRatio, config.cardScale),
                           // @ts-ignore
@@ -1360,6 +1403,8 @@ const App: React.FC = () => {
                           layout={segment.layout}
                           image={segment.image}
                           imageConfig={segment.imageConfig}
+                          editorialBrandLabel={segment.editorialBrandLabel}
+                          editorialBadgeText={segment.editorialBadgeText}
                           index={idx}
                           total={cards.length}
                           config={config}
@@ -1370,6 +1415,7 @@ const App: React.FC = () => {
                           onEditChange={(hasImage, cfg) =>
                             handleEditStateChange(idx, hasImage, cfg)
                           }
+                          onAvatarUpload={triggerAvatarUpload}
                           showOverflowControl={
                             hasCardEditsSinceGenerate && !pendingOverflowNormalization
                           }
@@ -1415,6 +1461,7 @@ const App: React.FC = () => {
             onSaveEdit={() => activeCardIndex !== null && handleSaveEdit(activeCardIndex)}
             onCancelEdit={() => activeCardIndex !== null && handleCancelEdit(activeCardIndex)}
             onTriggerImage={() => activeCardIndex !== null && triggerImageUpload(activeCardIndex)}
+            onTriggerAvatarUpload={triggerAvatarUpload}
             onDownload={() => activeCardIndex !== null && handleDownload(activeCardIndex)}
             onToggleHighlight={() => activeCardIndex !== null && cardRefs.current[activeCardIndex]?.toggleHighlight()}
             

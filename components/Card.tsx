@@ -14,12 +14,15 @@ interface CardProps {
   layout?: 'standard' | 'cover';
   image?: string;
   imageConfig?: ImageConfig;
+  editorialBrandLabel?: string;
+  editorialBadgeText?: string;
   index: number;
   total: number;
   config: CardConfig;
   onUpdate?: (data: CardSegment) => void;
   onSplit?: (segment: CardSegment) => void;
   onEditChange?: (hasImage: boolean, config: ImageConfig) => void;
+  onAvatarUpload?: () => void;
   showOverflowControl?: boolean;
 }
 
@@ -51,12 +54,14 @@ const DEFAULT_IMG_CONFIG: ImageConfig = {
   panY: 50
 };
 
-export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, layout = 'standard', image, imageConfig, index, total, config, onUpdate, onSplit, onEditChange, showOverflowControl = true }, ref) => {
-  
+export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, layout = 'standard', image, imageConfig, editorialBrandLabel: propBrandLabel, editorialBadgeText: propBadgeText, index, total, config, onUpdate, onSplit, onEditChange, onAvatarUpload, showOverflowControl = true }, ref) => {
+
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(sectionTitle);
   const [editContent, setEditContent] = useState(content);
   const [editImage, setEditImage] = useState(image);
+  const [editBrandLabel, setEditBrandLabel] = useState(propBrandLabel ?? '');
+  const [editBadgeText, setEditBadgeText] = useState(propBadgeText ?? '');
   const [editImageConfig, setEditImageConfig] = useState<ImageConfig>(imageConfig || DEFAULT_IMG_CONFIG);
   const [currentLayout, setCurrentLayout] = useState<'standard' | 'cover'>(layout);
   const [isOverflowing, setIsOverflowing] = useState(false);
@@ -75,12 +80,14 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
   const displayTotal = String(Math.max(0, total - 2)).padStart(2, '0');
 
   const handleSave = () => {
-    if (onUpdate) onUpdate({ 
-      title: editTitle, 
-      content: editContent, 
+    if (onUpdate) onUpdate({
+      title: editTitle,
+      content: editContent,
       layout: currentLayout,
       image: editImage,
-      imageConfig: editImageConfig
+      imageConfig: editImageConfig,
+      ...(editBrandLabel ? { editorialBrandLabel: editBrandLabel } : {}),
+      ...(editBadgeText ? { editorialBadgeText: editBadgeText } : {}),
     });
     setIsEditing(false);
   };
@@ -91,6 +98,8 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
     setEditImage(image);
     setEditImageConfig(imageConfig || DEFAULT_IMG_CONFIG);
     setCurrentLayout(layout);
+    setEditBrandLabel(propBrandLabel ?? '');
+    setEditBadgeText(propBadgeText ?? '');
     setIsEditing(false);
   };
 
@@ -554,8 +563,10 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
       setEditImage(image);
       setEditImageConfig(imageConfig || DEFAULT_IMG_CONFIG);
       setCurrentLayout(layout);
+      setEditBrandLabel(propBrandLabel ?? '');
+      setEditBadgeText(propBadgeText ?? '');
     }
-  }, [sectionTitle, content, layout, image, imageConfig, isEditing]);
+  }, [sectionTitle, content, layout, image, imageConfig, propBrandLabel, propBadgeText, isEditing]);
 
   // Report changes to parent during edit
   useEffect(() => {
@@ -1254,6 +1265,338 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
 
 
 
+  // 5. EDITORIAL — V3
+  // Reference: "Insane Websites For Designers" — grid paper texture, plain brand name top-left,
+  // simple index top-right, huge title with accent/muted color split, "Part X" pill badge, author bottom-left
+  const renderEditorial = () => {
+    const hasImage = !!editImage;
+    const titleScale = config.editorialTitleScale || 1.0;
+    const secondaryOpacity = 0.4;
+
+    // Colorway-adaptive gradient overlay for images
+    const gradientOverlay = isDark
+      ? `linear-gradient(to bottom, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.1) 40%, rgba(0,0,0,0.55) 100%)`
+      : `linear-gradient(to bottom, rgba(244,244,245,0.5) 0%, rgba(244,244,245,0.15) 40%, rgba(244,244,245,0.6) 100%)`;
+
+    // Brand name — plain text, no "©"
+    const brandName = propBrandLabel || config.title || config.authorName || 'Project';
+
+    // Badge text — "Part X" pill
+    const badgeText = propBadgeText || `Part ${index + 1}`;
+
+    // Editorial-specific highlighted title: **highlighted** = accentColor, rest = textColor with low opacity
+    const renderEditorialTitle = (title: string) => {
+      return title.split(/(\*\*[\s\S]*?\*\*)/g).map((part, i) =>
+        part.startsWith("**") && part.endsWith("**") ? (
+          <span key={i} style={{ color: config.accentColor }}>
+            {part.slice(2, -2)}
+          </span>
+        ) : (
+          <span key={i} style={{ color: config.textColor }}>
+            {part}
+          </span>
+        ),
+      );
+    };
+
+    // Muted gray — solid color matching the visual weight of semi-transparent text
+    const mutedColor = isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)';
+
+    /* ── EDITORIAL TYPE SCALE ──────────────────────────
+     *  Display:  coverTitle 4.5rem / standardTitle 3.0rem (× titleScale only, NOT cardScale)
+     *  Label:    brand, index, badge, author-name  → 13px (× cardScale)
+     *  Caption:  handle, bookmark-text, avatar-init → 11px (× cardScale)
+     *  Body:     bodyFontSize (config.fontSize × 0.86 rem)
+     * ───────────────────────────────────────────────── */
+    const EDITORIAL_LABEL = 13;   // Level 2: secondary info
+    const EDITORIAL_CAPTION = 11; // Level 3: tertiary info
+    const coverTitleSize = `${(4.5 * titleScale).toFixed(3)}rem`;
+    const standardTitleSize = `${(3.0 * titleScale).toFixed(3)}rem`;
+
+    return (
+      <div className="flex flex-col h-full w-full relative overflow-hidden">
+
+        {/* Layer 1: Full-screen background image */}
+        {hasImage && (
+          <div
+            className={`absolute inset-0 z-0 ${isEditing ? 'cursor-move' : ''}`}
+            onMouseDown={(e) => {
+              if (!isEditing) return;
+              e.preventDefault();
+              const startX = e.clientX;
+              const startY = e.clientY;
+              const startPanX = editImageConfig.panX;
+              const startPanY = editImageConfig.panY;
+              const container = e.currentTarget as HTMLDivElement;
+              const { width, height } = container.getBoundingClientRect();
+
+              const onMove = (moveEvent: MouseEvent) => {
+                const deltaX = moveEvent.clientX - startX;
+                const deltaY = moveEvent.clientY - startY;
+                const changeX = (deltaX / width) * 100 * (1 / editImageConfig.scale);
+                const changeY = (deltaY / height) * 100 * (1 / editImageConfig.scale);
+                setEditImageConfig(prev => ({
+                  ...prev,
+                  panX: Math.max(-100, Math.min(200, startPanX + changeX)),
+                  panY: Math.max(-100, Math.min(200, startPanY + changeY))
+                }));
+              };
+              const onUp = () => {
+                window.removeEventListener('mousemove', onMove);
+                window.removeEventListener('mouseup', onUp);
+              };
+              window.addEventListener('mousemove', onMove);
+              window.addEventListener('mouseup', onUp);
+            }}
+          >
+            <img
+              src={editImage}
+              alt="Background"
+              className="w-full h-full object-cover pointer-events-none select-none"
+              style={{
+                transform: `translate(${editImageConfig.panX - 50}%, ${editImageConfig.panY - 50}%) scale(${editImageConfig.scale})`,
+              }}
+            />
+            {isEditing && (
+              <div className="absolute inset-0 bg-black/5 opacity-0 hover:opacity-100 pointer-events-none transition-opacity flex items-center justify-center">
+                <Move size={32} className="text-white/40" />
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Layer 2: Gradient overlay (only when image present) */}
+        {hasImage && (
+          <div className="absolute inset-0 z-[1] pointer-events-none" style={{ background: gradientOverlay }} />
+        )}
+
+
+        {/* Layer 4: Content */}
+        <div className="relative z-10 flex flex-col h-full w-full select-none">
+
+          {isCover ? (
+            /* ═══ COVER: full magazine cover layout ═══ */
+            <>
+              {/* Top bar: brand name (left) + index (right) */}
+              <div
+                className="shrink-0 flex items-start justify-between"
+                style={{ paddingInline: px(28), paddingTop: px(28) }}
+              >
+                {isEditing ? (
+                  <input
+                    value={editBrandLabel || config.title || ''}
+                    onChange={(e) => setEditBrandLabel(e.target.value)}
+                    placeholder="Brand"
+                    spellCheck={false}
+                    className="font-sans font-medium bg-transparent border-none outline-none p-0"
+                    style={{ fontSize: px(EDITORIAL_CAPTION), color: config.accentColor, width: '60%' }}
+                  />
+                ) : (
+                  <span
+                    className="font-sans font-medium"
+                    style={{ fontSize: px(EDITORIAL_CAPTION), color: config.accentColor }}
+                  >
+                    {brandName}
+                  </span>
+                )}
+                <span
+                  className="font-sans"
+                  style={{ fontSize: px(EDITORIAL_CAPTION), color: config.textColor }}
+                >
+                  {displayIndex}
+                </span>
+              </div>
+
+              {/* Center: HUGE title */}
+              <div className="flex-1 flex flex-col items-start justify-center" style={{ paddingInline: px(28) }}>
+                <div className="w-full">
+                  {isEditing ? (
+                    <textarea
+                      ref={(el) => {
+                        (titleInputRef as React.MutableRefObject<HTMLTextAreaElement | null>).current = el;
+                        if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; }
+                      }}
+                      value={editTitle}
+                      onChange={(e) => {
+                        setEditTitle(e.target.value);
+                        e.target.style.height = 'auto';
+                        e.target.style.height = e.target.scrollHeight + 'px';
+                      }}
+                      placeholder="TITLE"
+                      spellCheck={false}
+                      className={`w-full font-bold ${getFontClass(config.fontStyle)}`}
+                      rows={1}
+                      style={{ ...titleEditBaseStyle, color: config.textColor, fontSize: coverTitleSize, lineHeight: 0.95, overflow: 'hidden', resize: 'none' }}
+                    />
+                  ) : (
+                    <h1
+                      className={`font-bold break-words whitespace-pre-wrap ${getFontClass(config.fontStyle)}`}
+                      style={{ fontSize: coverTitleSize, lineHeight: 0.95 }}
+                    >
+                      {renderEditorialTitle(editTitle || 'UNTITLED')}
+                    </h1>
+                  )}
+                  {/* "Part X" pill badge — always visible, editable in edit mode */}
+                  <div
+                    className="inline-grid font-sans mt-6"
+                    style={{
+                      fontSize: px(EDITORIAL_LABEL),
+                      color: mutedColor,
+                      border: `1px solid ${isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.25)'}`,
+                      borderRadius: '999px',
+                      padding: `${px(6)} ${px(16)}`,
+                    }}
+                    onClick={(e) => isEditing && e.stopPropagation()}
+                  >
+                    {/* Mirror span controls width; input overlays it */}
+                    <span className="invisible whitespace-pre [grid-area:1/1/2/2]">
+                      {(isEditing ? (editBadgeText || badgeText) : badgeText)}
+                    </span>
+                    {isEditing ? (
+                      <input
+                        value={editBadgeText}
+                        onChange={(e) => setEditBadgeText(e.target.value)}
+                        placeholder={badgeText}
+                        spellCheck={false}
+                        className="bg-transparent border-none outline-none [grid-area:1/1/2/2] w-full text-center placeholder:opacity-40"
+                        style={{ color: mutedColor, fontSize: 'inherit' }}
+                      />
+                    ) : (
+                      <span className="[grid-area:1/1/2/2]">{badgeText}</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Bottom bar: author info (left), optional text (right) */}
+              <div
+                className="shrink-0 flex items-end justify-between font-sans"
+                style={{ paddingInline: px(28), paddingBottom: px(24) }}
+              >
+                {/* Author info — avatar centered on text, text bottom-aligns with right side */}
+                <div className="relative" style={{ paddingLeft: px(48) }}>
+                  {/* Avatar — absolutely positioned, centered on text column */}
+                  <div
+                    className={`absolute left-0 top-1/2 -translate-y-1/2 rounded-full flex items-center justify-center font-bold overflow-hidden ${isEditing ? 'cursor-pointer' : ''}`}
+                    style={{
+                      width: px(40),
+                      height: px(40),
+                      backgroundColor: config.authorAvatar ? 'transparent' : (isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)'),
+                      color: config.textColor,
+                      fontSize: px(16),
+                      outline: isEditing ? `2px dashed ${config.accentColor}` : 'none',
+                      outlineOffset: isEditing ? '2px' : '0px',
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (isEditing && onAvatarUpload) onAvatarUpload();
+                    }}
+                    title={isEditing ? 'Click to upload avatar' : ''}
+                  >
+                    {config.authorAvatar ? (
+                      <img src={config.authorAvatar} alt="Avatar" className="w-full h-full object-cover" />
+                    ) : (
+                      (config.authorName || config.title || 'P').charAt(0).toUpperCase()
+                    )}
+                  </div>
+                  {/* Text column — in flow, defines group height */}
+                  <div className="flex flex-col" onClick={(e) => isEditing && e.stopPropagation()}>
+                    {isEditing ? (
+                      <input
+                        value={config.authorName || ''}
+                        onChange={(e) => {
+                          if (onUpdate) onUpdate({
+                            title: editTitle,
+                            content: editContent,
+                            layout: currentLayout,
+                            image: editImage,
+                            imageConfig: editImageConfig,
+                            _authorNameUpdate: e.target.value,
+                          } as any);
+                        }}
+                        placeholder="Author"
+                        spellCheck={false}
+                        className="bg-transparent border-none outline-none p-0"
+                        style={{ fontSize: px(EDITORIAL_CAPTION), color: config.textColor, fontWeight: 600, width: '100%' }}
+                      />
+                    ) : (
+                      <span style={{ fontSize: px(EDITORIAL_CAPTION), color: config.textColor, fontWeight: 600 }}>
+                        {config.authorName || config.title || 'Author'}
+                      </span>
+                    )}
+                    <span style={{ fontSize: px(EDITORIAL_CAPTION), color: config.textColor, opacity: secondaryOpacity }}>
+                      daiziyu.com
+                    </span>
+                  </div>
+                </div>
+                {/* Right side: accent-colored bookmark icon + text */}
+                <div className="flex items-center gap-1.5" style={{ color: config.accentColor }}>
+                  <svg width={px(EDITORIAL_CAPTION)} height={px(EDITORIAL_CAPTION)} viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M3 2.5A1.5 1.5 0 014.5 1h7A1.5 1.5 0 0113 2.5v12a.5.5 0 01-.748.434L8 12.153l-4.252 2.78A.5.5 0 013 14.5v-12z" />
+                  </svg>
+                  <span style={{ fontSize: px(EDITORIAL_CAPTION) }}>Save for later</span>
+                </div>
+              </div>
+            </>
+          ) : (
+            /* ═══ STANDARD: clean body page — title + content ONLY ═══ */
+            <>
+              {hasVisibleTitle && (
+                <div className="shrink-0" style={{ paddingInline: px(28), paddingTop: px(28) }}>
+                  {isEditing ? (
+                    <input
+                      ref={titleInputRef as any}
+                      value={editTitle}
+                      onChange={(e) => setEditTitle(e.target.value)}
+                      placeholder="(No Title)"
+                      spellCheck={false}
+                      className={`w-full font-bold leading-[0.95] placeholder:opacity-20 ${getFontClass(config.fontStyle)}`}
+                      style={{ ...titleEditBaseStyle, color: config.textColor, fontSize: standardTitleSize, lineHeight: 0.95 }}
+                    />
+                  ) : (
+                    <h2
+                      className={`font-bold whitespace-pre-wrap ${getFontClass(config.fontStyle)}`}
+                      style={{ fontSize: standardTitleSize, lineHeight: 0.95 }}
+                    >
+                      {renderEditorialTitle(editTitle)}
+                    </h2>
+                  )}
+                </div>
+              )}
+
+              <div
+                className="flex-1 min-h-0 relative"
+                style={{
+                  fontSize: bodyFontSize,
+                  lineHeight: bodyLineHeight,
+                  letterSpacing: BODY_TYPOGRAPHY.letterSpacing,
+                  color: config.textColor,
+                  paddingInline: px(28),
+                  paddingTop: hasVisibleTitle ? px(16) : px(28),
+                  paddingBottom: px(28),
+                }}
+              >
+                {isEditing ? (
+                  <textarea
+                    ref={contentInputRef}
+                    value={editContent}
+                    onChange={(e) => setEditContent(e.target.value)}
+                    className="w-full h-full resize-none"
+                    style={{ ...bodyEditStyle, color: config.textColor }}
+                  />
+                ) : (
+                  renderMarkdownContent()
+                )}
+                {renderOverflowBtn()}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+
   // --- MAIN RENDER ---
   const getContainerStyle = () => {
     const baseStyle = {
@@ -1268,20 +1611,28 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
         boxShadow: '0 0 0 1px rgba(0,0,0,0.05)',
       }
     }
-    
 
+    if (config.composition === 'editorial') {
+      return {
+        ...baseStyle,
+        borderRadius: '20px',
+        boxShadow: isDark
+          ? 'inset 0 0 0 1px rgba(255,255,255,0.08), 0 32px 64px -16px rgba(0,0,0,0.7)'
+          : 'inset 0 0 0 1px rgba(0,0,0,0.08), 0 32px 64px -16px rgba(0,0,0,0.12)',
+      }
+    }
 
     return {
       ...baseStyle,
       borderRadius: '16px',
       boxShadow: isDark
-          ? 'inset 0 1px 0 rgba(255,255,255,0.1), 0 24px 48px -12px rgba(0,0,0,0.6)' 
+          ? 'inset 0 1px 0 rgba(255,255,255,0.1), 0 24px 48px -12px rgba(0,0,0,0.6)'
           : 'inset 0 1px 0 rgba(255,255,255,0.8), 0 24px 48px -12px rgba(0,0,0,0.1)',
     };
   };
-  
+
   return (
-    <div 
+    <div
       ref={containerRef}
       className={`relative group/card ${getFontClass(config.fontStyle)} w-full shrink-0 overflow-hidden flex flex-col transition-all duration-300`}
       style={{
@@ -1293,6 +1644,7 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
 
        {config.composition === 'classic' && renderClassic()}
        {config.composition === 'technical' && renderTechnical()}
+       {config.composition === 'editorial' && renderEditorial()}
 
        
     </div>

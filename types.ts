@@ -14,7 +14,7 @@ export enum AspectRatio {
 
 export type Colorway = 'snow' | 'neon';
 
-export type Composition = 'classic' | 'technical';
+export type Composition = 'classic' | 'technical' | 'editorial';
 
 export interface CardConfig {
   // Visuals
@@ -29,10 +29,12 @@ export interface CardConfig {
   aspectRatio: AspectRatio;
   fontSize: number;
   cardScale: number;
-  
+  editorialTitleScale: number; // 0.6–1.6, multiplier for editorial title font size
+
   // Content
   showMetadata: boolean;
   authorName: string;
+  authorAvatar?: string; // Base64 data URL for author avatar
   title: string;
 }
 
@@ -51,6 +53,8 @@ export interface CardSegment {
   layout?: 'standard' | 'cover';
   image?: string; // Base64 data URL
   imageConfig?: ImageConfig;
+  editorialBrandLabel?: string; // Custom brand name override for editorial Cover
+  editorialBadgeText?: string;  // Custom badge text override for editorial Cover (e.g. "Part 1")
 }
 
 export interface SplitResponse {
