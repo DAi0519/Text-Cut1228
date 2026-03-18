@@ -65,7 +65,8 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
   const [editImageConfig, setEditImageConfig] = useState<ImageConfig>(imageConfig || DEFAULT_IMG_CONFIG);
   const [currentLayout, setCurrentLayout] = useState<'standard' | 'cover'>(layout);
   const [isOverflowing, setIsOverflowing] = useState(false);
-  
+  const [snapGuides, setSnapGuides] = useState<{ x: boolean; y: boolean }>({ x: false, y: false });
+
   const contentRef = useRef<HTMLDivElement>(null);
   const contentMeasureRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -1273,11 +1274,6 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
     const titleScale = config.editorialTitleScale || 1.0;
     const secondaryOpacity = 0.4;
 
-    // Colorway-adaptive gradient overlay for images
-    const gradientOverlay = isDark
-      ? `linear-gradient(to bottom, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.1) 40%, rgba(0,0,0,0.55) 100%)`
-      : `linear-gradient(to bottom, rgba(244,244,245,0.5) 0%, rgba(244,244,245,0.15) 40%, rgba(244,244,245,0.6) 100%)`;
-
     // Brand name — plain text, no "©"
     const brandName = propBrandLabel || config.title || config.authorName || 'Project';
 
@@ -1312,6 +1308,10 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
     const EDITORIAL_CAPTION = 11; // Level 3: tertiary info
     const coverTitleSize = `${(4.5 * titleScale).toFixed(3)}rem`;
     const standardTitleSize = `${(3.0 * titleScale).toFixed(3)}rem`;
+    const coverBadgeFontSize = px(EDITORIAL_LABEL * titleScale);
+    const coverBadgePaddingY = px(6 * titleScale);
+    const coverBadgePaddingX = px(16 * titleScale);
+    const coverBadgeMarginTop = px(24 * titleScale);
 
     return (
       <div className="flex flex-col h-full w-full relative overflow-hidden">
@@ -1345,11 +1345,17 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
           </div>
         )}
 
-        {/* Layer 2: Gradient overlay (only when image present) */}
-        {hasImage && (
-          <div className="absolute inset-0 z-[1] pointer-events-none" style={{ background: gradientOverlay }} />
+        {/* Layer 2: Snap guide lines — only visible during drag near center */}
+        {(snapGuides.x || snapGuides.y) && (
+          <div className="absolute inset-0 z-[2] pointer-events-none">
+            {snapGuides.x && (
+              <div className="absolute top-0 bottom-0 left-1/2" style={{ width: '1px', background: 'rgba(255,255,255,0.6)', boxShadow: '0 0 4px rgba(0,0,0,0.3)' }} />
+            )}
+            {snapGuides.y && (
+              <div className="absolute left-0 right-0 top-1/2" style={{ height: '1px', background: 'rgba(255,255,255,0.6)', boxShadow: '0 0 4px rgba(0,0,0,0.3)' }} />
+            )}
+          </div>
         )}
-
 
         {/* Layer 4: Content — also handles image drag in edit mode */}
         <div
@@ -1370,21 +1376,29 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
             const imgW = imgEl?.offsetWidth || container.offsetWidth;
             const imgH = imgEl?.offsetHeight || container.offsetHeight;
 
+            const SNAP_CENTER = 50;
+            const SNAP_THRESHOLD = 3; // snap when within 3% of center
+
             const onMove = (moveEvent: MouseEvent) => {
               const deltaX = moveEvent.clientX - startX;
               const deltaY = moveEvent.clientY - startY;
-              // translate %: relative to image's own dimensions
               const changeX = (deltaX / imgW) * 100;
               const changeY = (deltaY / imgH) * 100;
+              let rawX = Math.max(-50, Math.min(150, startPanX + changeX));
+              let rawY = Math.max(-50, Math.min(150, startPanY + changeY));
+              const nearX = Math.abs(rawX - SNAP_CENTER) < SNAP_THRESHOLD;
+              const nearY = Math.abs(rawY - SNAP_CENTER) < SNAP_THRESHOLD;
+              setSnapGuides({ x: nearX, y: nearY });
               setEditImageConfig(prev => ({
                 ...prev,
-                panX: Math.max(-50, Math.min(150, startPanX + changeX)),
-                panY: Math.max(-50, Math.min(150, startPanY + changeY))
+                panX: nearX ? SNAP_CENTER : rawX,
+                panY: nearY ? SNAP_CENTER : rawY,
               }));
             };
             const onUp = () => {
               window.removeEventListener('mousemove', onMove);
               window.removeEventListener('mouseup', onUp);
+              setSnapGuides({ x: false, y: false });
             };
             window.addEventListener('mousemove', onMove);
             window.addEventListener('mouseup', onUp);
@@ -1455,13 +1469,14 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
                   )}
                   {/* "Part X" pill badge — always visible, editable in edit mode */}
                   <div
-                    className="inline-grid font-sans mt-6"
+                    className="inline-grid font-sans"
                     style={{
-                      fontSize: px(EDITORIAL_LABEL),
+                      fontSize: coverBadgeFontSize,
                       color: mutedColor,
                       border: `1px solid ${isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.25)'}`,
                       borderRadius: '999px',
-                      padding: `${px(6)} ${px(16)}`,
+                      padding: `${coverBadgePaddingY} ${coverBadgePaddingX}`,
+                      marginTop: coverBadgeMarginTop,
                     }}
                     onClick={(e) => isEditing && e.stopPropagation()}
                   >

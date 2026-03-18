@@ -25,7 +25,7 @@ const VALID_FONT_STYLES = new Set([
   FontStyle.OPPO,
   FontStyle.SWEI,
 ]);
-const CONFIG_VERSION = 3;
+const CONFIG_VERSION = 4;
 const CARD_BASE_WIDTHS: Record<AspectRatio, number> = {
   [AspectRatio.PORTRAIT]: 380,
   [AspectRatio.SQUARE]: 480,
@@ -182,6 +182,10 @@ const migrateConfig = (
     next.fontSize = defaults.fontSize;
   }
 
+  if (raw.editorialTitleScale == null || raw.editorialTitleScale === 1.0) {
+    next.editorialTitleScale = defaults.editorialTitleScale;
+  }
+
   return normalizeConfig(next, defaults);
 };
 
@@ -298,7 +302,7 @@ const App: React.FC = () => {
       aspectRatio: AspectRatio.PORTRAIT,
       fontSize: 1.05,
       cardScale: 1.35,
-      editorialTitleScale: 1.0,
+      editorialTitleScale: 0.9,
       showMetadata: true,
       title: "",
       authorName: "",
