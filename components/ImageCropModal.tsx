@@ -70,8 +70,9 @@ export const ImageCropModal: React.FC<ImageCropModalProps> = ({
   const [panX, setPanX] = useState(initialPanX);
   const [panY, setPanY] = useState(initialPanY);
   const [naturalRatio, setNaturalRatio] = useState<number | null>(null);
-  const viewportRef = useRef<HTMLDivElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
+  const [stageSize, setStageSize] = useState({ width: 0, height: 0 });
   const targetRatio = useMemo(() => parseRatio(ratio), [ratio]);
 
   useEffect(() => {
@@ -89,6 +90,62 @@ export const ImageCropModal: React.FC<ImageCropModalProps> = ({
     setPanX((prev) => clamp(prev, bounds.minPanX, bounds.maxPanX));
     setPanY((prev) => clamp(prev, bounds.minPanY, bounds.maxPanY));
   }, [naturalRatio, scale, targetRatio]);
+
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage) return;
+
+    const updateSize = () => {
+      const nextWidth = stage.clientWidth;
+      const nextHeight = stage.clientHeight;
+      setStageSize((prev) => {
+        if (prev.width === nextWidth && prev.height === nextHeight) {
+          return prev;
+        }
+        return { width: nextWidth, height: nextHeight };
+      });
+    };
+
+    updateSize();
+    const observer = new ResizeObserver(updateSize);
+    observer.observe(stage);
+    return () => observer.disconnect();
+  }, []);
+
+  const cropViewportSize = useMemo(() => {
+    const stageWidth = stageSize.width;
+    const stageHeight = stageSize.height;
+    const fallbackMax = 420;
+
+    if (!stageWidth || !stageHeight) {
+      if (targetRatio >= 1) {
+        return {
+          width: fallbackMax,
+          height: fallbackMax / targetRatio,
+        };
+      }
+      return {
+        width: fallbackMax * targetRatio,
+        height: fallbackMax,
+      };
+    }
+
+    const padding = 24;
+    const availableWidth = Math.max(1, stageWidth - padding * 2);
+    const availableHeight = Math.max(1, stageHeight - padding * 2);
+
+    if (availableWidth / availableHeight > targetRatio) {
+      return {
+        width: availableHeight * targetRatio,
+        height: availableHeight,
+      };
+    }
+
+    return {
+      width: availableWidth,
+      height: availableWidth / targetRatio,
+    };
+  }, [stageSize.height, stageSize.width, targetRatio]);
 
   const handleMouseDown = (event: React.MouseEvent<HTMLDivElement>) => {
     if (!naturalRatio || !imageRef.current) return;
@@ -158,31 +215,38 @@ export const ImageCropModal: React.FC<ImageCropModalProps> = ({
         <div className="grid gap-6 px-6 py-6 md:grid-cols-[minmax(0,1fr)_240px]">
           <div className="rounded-[24px] bg-[#f1f1ee] p-5">
             <div
-              ref={viewportRef}
-              className="relative mx-auto overflow-hidden rounded-[20px] bg-white shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)] cursor-move"
-              style={{
-                width: "min(100%, 620px)",
-                aspectRatio: ratio.replace(":", "/"),
-              }}
-              onMouseDown={handleMouseDown}
+              ref={stageRef}
+              className="relative mx-auto w-full max-w-[620px] overflow-hidden rounded-[20px] bg-[#e9e9e6] shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]"
+              style={{ height: "min(64vh, 560px)" }}
             >
-              <img
-                ref={imageRef}
-                src={imageSrc}
-                alt="Crop preview"
-                className="absolute left-1/2 top-1/2 block max-w-none select-none pointer-events-none"
-                onLoad={(event) => {
-                  const image = event.currentTarget;
-                  if (image.naturalWidth > 0 && image.naturalHeight > 0) {
-                    setNaturalRatio(image.naturalWidth / image.naturalHeight);
-                  }
-                }}
+              <div className="absolute left-1/2 top-1/2 h-full w-full -translate-x-1/2 -translate-y-1/2 bg-black/[0.02]" />
+              <div
+                className="absolute left-1/2 top-1/2 cursor-move overflow-hidden rounded-[16px] bg-white shadow-[0_10px_30px_rgba(0,0,0,0.12),inset_0_0_0_1px_rgba(0,0,0,0.12)]"
                 style={{
-                  ...baseImageStyle,
-                  transform: `translate(calc(-50% + ${panX - 50}%), calc(-50% + ${panY - 50}%)) scale(${scale})`,
-                  transformOrigin: "center center",
+                  width: `${cropViewportSize.width}px`,
+                  height: `${cropViewportSize.height}px`,
+                  transform: "translate(-50%, -50%)",
                 }}
-              />
+                onMouseDown={handleMouseDown}
+              >
+                <img
+                  ref={imageRef}
+                  src={imageSrc}
+                  alt="Crop preview"
+                  className="absolute left-1/2 top-1/2 block max-w-none select-none pointer-events-none"
+                  onLoad={(event) => {
+                    const image = event.currentTarget;
+                    if (image.naturalWidth > 0 && image.naturalHeight > 0) {
+                      setNaturalRatio(image.naturalWidth / image.naturalHeight);
+                    }
+                  }}
+                  style={{
+                    ...baseImageStyle,
+                    transform: `translate(calc(-50% + ${panX - 50}%), calc(-50% + ${panY - 50}%)) scale(${scale})`,
+                    transformOrigin: "center center",
+                  }}
+                />
+              </div>
             </div>
           </div>
 

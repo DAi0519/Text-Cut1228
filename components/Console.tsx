@@ -68,7 +68,9 @@ export const Console: React.FC<ConsoleProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<TabId>('style');
   const [showExportMenu, setShowExportMenu] = useState(false);
+  const [showFrameSizeMenu, setShowFrameSizeMenu] = useState(false);
   const exportMenuRef = useRef<HTMLDivElement>(null);
+  const frameSizeMenuRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Measure height changes
@@ -91,10 +93,19 @@ export const Console: React.FC<ConsoleProps> = ({
       if (exportMenuRef.current && !exportMenuRef.current.contains(event.target as Node)) {
         setShowExportMenu(false);
       }
+      if (frameSizeMenuRef.current && !frameSizeMenuRef.current.contains(event.target as Node)) {
+        setShowFrameSizeMenu(false);
+      }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    if (activeTab !== 'editor' || !activeHasImage) {
+      setShowFrameSizeMenu(false);
+    }
+  }, [activeTab, activeHasImage, activeCardIndex]);
 
   const prevTabRef = useRef<TabId>('style');
 
@@ -150,13 +161,7 @@ export const Console: React.FC<ConsoleProps> = ({
       default: return <ArrowUp size={14} />;
     }
   };
-
-  const cyclePosition = () => {
-    if (!activeImageConfig) return;
-    const order: ImageConfig["position"][] = ["top", "bottom", "left", "right"];
-    const currentIdx = order.indexOf(activeImageConfig.position);
-    onUpdateImageConfig({ position: order[(currentIdx + 1) % order.length] });
-  };
+  const positionOptions: ImageConfig["position"][] = ["top", "bottom", "left", "right"];
 
   const frameSizeOptions: Array<{ label: string; value?: ImageAspectRatio }> = [
     { label: "Orig" },
@@ -164,12 +169,16 @@ export const Console: React.FC<ConsoleProps> = ({
     { label: "4:3", value: "4:3" },
     { label: "16:9", value: "16:9" },
     { label: "3:4", value: "3:4" },
+    { label: "21:9", value: "21:9" },
+    { label: "9:21", value: "9:21" },
+    { label: "9:16", value: "9:16" },
   ];
 
   const hasActiveCard = activeCardIndex !== null;
+  const activeFrameSizeLabel = activeImageConfig?.aspectRatio || "Orig";
 
   return (
-    <div ref={containerRef} className="fixed bottom-6 left-1/2 -translate-x-1/2 w-full max-w-[640px] h-[224px] bg-white/95 backdrop-blur-xl border border-black/5 rounded-2xl shadow-2xl overflow-hidden flex flex-col z-50 ring-1 ring-black/5">
+    <div ref={containerRef} className="fixed bottom-6 left-1/2 -translate-x-1/2 w-full max-w-[640px] min-h-[224px] max-h-[320px] bg-white/95 backdrop-blur-xl border border-black/5 rounded-2xl shadow-2xl overflow-hidden flex flex-col z-50 ring-1 ring-black/5">
       
       {/* --- TOP BAR --- */}
       <div className="h-11 border-b border-black/5 flex items-center justify-between px-2">
@@ -381,51 +390,94 @@ export const Console: React.FC<ConsoleProps> = ({
 
                   {/* Image Tuning - Expands below when image exists */}
                   {activeHasImage && activeImageConfig && (
-                    <div className="mt-5 pt-5 border-t border-black/5 flex flex-col gap-4">
-                       <div className="flex items-center gap-4">
-                          {/* Position Cycle */}
-                          <button onClick={cyclePosition} className="h-9 px-3 bg-black/[0.03] rounded-lg flex items-center gap-2 hover:bg-black/[0.06] transition-all text-black/60 hover:text-black shrink-0" title="Change Position">
-                             {getPositionIcon(activeImageConfig.position)}
-                             <span className="text-[10px] font-bold uppercase w-12 text-center">{positionLabels[activeImageConfig.position]}</span>
-                          </button>
-                          
-                          <div className="h-6 w-px bg-black/5"></div>
+                    <div className="mt-5 pt-5 border-t border-black/5 flex flex-col gap-5">
+                       {/* Header (optional if you still want it, but based on the minimalist screenshot, we can just align the controls directly. Let's keep it but aligned.) */}
+                       {/* The screenshot shows only the controls. We'll format them exactly. */}
 
-                          {/* Sliders */}
-                          <div className="flex-1 grid grid-cols-2 gap-6">
-                            <div className="flex flex-col gap-1.5">
-                               <div className="flex justify-between text-[9px] font-bold uppercase tracking-wider opacity-40">
-                                  <span>Zoom</span>
-                                  <span className="font-mono">{activeImageConfig.scale.toFixed(1)}x</span>
-                               </div>
-                               <input type="range" min="0.2" max="3" step="0.1" value={activeImageConfig.scale} onChange={(e) => onUpdateImageConfig({ scale: parseFloat(e.target.value) })} className="w-full h-1.5 bg-black/10 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:bg-black [&::-webkit-slider-thumb]:rounded-full hover:[&::-webkit-slider-thumb]:scale-110 transition-all" />
-                            </div>
-                            <div className="flex flex-col gap-1.5">
-                               <div className="flex justify-between text-[9px] font-bold uppercase tracking-wider opacity-40">
-                                  <span>Frame Size</span>
-                                  <span className="font-mono">{activeImageConfig.aspectRatio || 'Orig'}</span>
-                               </div>
-                               <div className="grid grid-cols-5 gap-1">
-                                  {frameSizeOptions.map((option) => {
-                                    const isActive = (option.value ?? undefined) === (activeImageConfig.aspectRatio ?? undefined);
-                                    return (
-                                      <button
-                                        key={option.label}
-                                        onClick={() => onSelectFrameSize(option.value)}
-                                        className={`h-8 rounded-lg border text-[10px] font-bold uppercase tracking-wide transition-all ${isActive ? 'border-black bg-black text-white shadow-sm' : 'border-black/10 bg-black/[0.03] text-black/55 hover:border-black/20 hover:text-black'}`}
-                                      >
-                                        {option.label}
-                                      </button>
-                                    );
-                                  })}
-                               </div>
-                            </div>
+                       <div className="flex flex-col gap-5">
+                          {/* Zoom Control */}
+                          <div className="flex flex-col gap-2">
+                             <div className="flex justify-between items-end text-[9px] font-bold uppercase tracking-wider text-black/55">
+                                <span>Zoom</span>
+                                <span className="pb-0.5 font-semibold tracking-[0.08em] text-black/65">{activeImageConfig.scale.toFixed(1)}x</span>
+                             </div>
+                             <div className="rounded-xl bg-black/[0.025] px-3 h-11 flex items-center border border-black/[0.02]">
+                               <input type="range" min="0.2" max="3" step="0.1" value={activeImageConfig.scale} onChange={(e) => onUpdateImageConfig({ scale: parseFloat(e.target.value) })} className="w-full h-1.5 bg-black/10 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:bg-black [&::-webkit-slider-thumb]:rounded-full hover:[&::-webkit-slider-thumb]:scale-110 transition-all shadow-sm" />
+                             </div>
                           </div>
 
-                          {/* Remove */}
-                          <button onClick={onRemoveImage} className="w-9 h-9 rounded-full hover:bg-red-50 text-black/20 hover:text-red-500 transition-all flex items-center justify-center shrink-0" title="Remove Image">
-                             <Trash2 size={16} />
-                          </button>
+                          {/* Position Control */}
+                          <div className="flex flex-col gap-2">
+                             <div className="text-[9px] font-bold uppercase tracking-wider text-black/55">
+                                Position
+                             </div>
+                             <div className="grid grid-cols-4 gap-2">
+                                {positionOptions.map((position) => {
+                                  const isActive = activeImageConfig.position === position;
+                                  return (
+                                    <button
+                                      key={position}
+                                      onClick={() => onUpdateImageConfig({ position })}
+                                      className={`h-9 rounded-xl border flex items-center justify-center transition-all ${isActive ? 'border-black bg-black text-white shadow-sm' : 'border-black/15 bg-white text-black/70 hover:bg-black/[0.03] hover:text-black'}`}
+                                      title={positionLabels[position]}
+                                      aria-label={`Position ${positionLabels[position]}`}
+                                    >
+                                      {getPositionIcon(position)}
+                                    </button>
+                                  );
+                                })}
+                             </div>
+                          </div>
+
+                          {/* Frame Size Control */}
+                          <div className="flex flex-col gap-2">
+                             <div className="flex justify-between items-center">
+                                <span className="text-[9px] font-bold uppercase tracking-wider text-black/55">Frame Size</span>
+                                <div className="relative" ref={frameSizeMenuRef}>
+                                  <button
+                                    onClick={() => setShowFrameSizeMenu((prev) => !prev)}
+                                    className="h-8 px-3 rounded-lg border border-black/15 bg-white text-black/75 hover:bg-black/[0.04] hover:text-black transition-all inline-flex items-center justify-center gap-1.5"
+                                    aria-label="Choose frame size"
+                                  >
+                                    <span className="text-[9px] font-bold uppercase tracking-[0.12em] pt-0.5">{activeFrameSizeLabel}</span>
+                                    <ChevronDown size={10} className={`transition-transform duration-150 ${showFrameSizeMenu ? "rotate-180" : ""}`} />
+                                  </button>
+                                  {showFrameSizeMenu && (
+                                    <div className="absolute right-0 bottom-full mb-2 w-[220px] rounded-xl border border-black/10 bg-white p-2 shadow-2xl ring-1 ring-black/5 z-40 origin-bottom-right animate-in fade-in zoom-in-95 duration-200">
+                                      <div className="grid grid-cols-4 gap-1.5">
+                                        {frameSizeOptions.map((option) => {
+                                          const isActive = (option.value ?? undefined) === (activeImageConfig.aspectRatio ?? undefined);
+                                          return (
+                                            <button
+                                              key={option.label}
+                                              onClick={() => {
+                                                onSelectFrameSize(option.value);
+                                                setShowFrameSizeMenu(false);
+                                              }}
+                                              className={`h-8 rounded-lg border text-[9px] font-bold uppercase tracking-[0.12em] transition-all ${isActive ? 'border-black bg-black text-white shadow-sm' : 'border-black/15 bg-white text-black/75 hover:bg-black/[0.04] hover:text-black'}`}
+                                            >
+                                              {option.label}
+                                            </button>
+                                          );
+                                        })}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                             </div>
+                          </div>
+                          
+                          {/* Remove Image Button */}
+                          <div className="pt-2">
+                             <button
+                               onClick={onRemoveImage}
+                               className="h-8 w-full rounded-xl border border-black/5 bg-transparent text-[9px] font-bold uppercase tracking-[0.1em] text-red-500/70 hover:border-red-500/20 hover:bg-red-50 hover:text-red-500 transition-all shadow-[0_1px_2px_rgba(0,0,0,0.02)] flex items-center justify-center gap-1.5"
+                               aria-label="Remove Image"
+                             >
+                                <Trash2 size={12} />
+                                <span>Remove Image</span>
+                             </button>
+                          </div>
                        </div>
                     </div>
                   )}

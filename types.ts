@@ -15,7 +15,7 @@ export enum AspectRatio {
 export type Colorway = 'snow' | 'neon';
 
 export type Composition = 'classic' | 'technical' | 'editorial';
-export type ImageAspectRatio = '1:1' | '4:3' | '16:9' | '3:4';
+export type ImageAspectRatio = '1:1' | '4:3' | '16:9' | '3:4' | '21:9' | '9:21' | '9:16';
 
 export interface CardConfig {
   // Visuals
