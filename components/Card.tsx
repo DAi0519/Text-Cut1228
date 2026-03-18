@@ -1318,50 +1318,30 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
 
         {/* Layer 1: Full-screen background image */}
         {hasImage && (
-          <div
-            className={`absolute inset-0 z-0 ${isEditing ? 'cursor-move' : ''}`}
-            onMouseDown={(e) => {
-              if (!isEditing) return;
-              e.preventDefault();
-              const startX = e.clientX;
-              const startY = e.clientY;
-              const startPanX = editImageConfig.panX;
-              const startPanY = editImageConfig.panY;
-              const container = e.currentTarget as HTMLDivElement;
-              const { width, height } = container.getBoundingClientRect();
-
-              const onMove = (moveEvent: MouseEvent) => {
-                const deltaX = moveEvent.clientX - startX;
-                const deltaY = moveEvent.clientY - startY;
-                const changeX = (deltaX / width) * 100 * (1 / editImageConfig.scale);
-                const changeY = (deltaY / height) * 100 * (1 / editImageConfig.scale);
-                setEditImageConfig(prev => ({
-                  ...prev,
-                  panX: Math.max(-100, Math.min(200, startPanX + changeX)),
-                  panY: Math.max(-100, Math.min(200, startPanY + changeY))
-                }));
-              };
-              const onUp = () => {
-                window.removeEventListener('mousemove', onMove);
-                window.removeEventListener('mouseup', onUp);
-              };
-              window.addEventListener('mousemove', onMove);
-              window.addEventListener('mouseup', onUp);
-            }}
-          >
+          <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
             <img
               src={editImage}
               alt="Background"
-              className="w-full h-full object-cover pointer-events-none select-none"
+              className="absolute left-1/2 top-1/2 block max-w-none select-none"
+              onLoad={(e) => {
+                const img = e.currentTarget;
+                const container = img.parentElement!;
+                const cRatio = container.offsetWidth / container.offsetHeight;
+                const iRatio = img.naturalWidth / img.naturalHeight;
+                // Size to just-cover: constrain the shorter dimension to 100%
+                if (iRatio > cRatio) {
+                  img.style.width = 'auto';
+                  img.style.height = '100%';
+                } else {
+                  img.style.width = '100%';
+                  img.style.height = 'auto';
+                }
+              }}
               style={{
-                transform: `translate(${editImageConfig.panX - 50}%, ${editImageConfig.panY - 50}%) scale(${editImageConfig.scale})`,
+                transform: `translate(calc(-50% + ${editImageConfig.panX - 50}%), calc(-50% + ${editImageConfig.panY - 50}%)) scale(${editImageConfig.scale})`,
+                transformOrigin: 'center center',
               }}
             />
-            {isEditing && (
-              <div className="absolute inset-0 bg-black/5 opacity-0 hover:opacity-100 pointer-events-none transition-opacity flex items-center justify-center">
-                <Move size={32} className="text-white/40" />
-              </div>
-            )}
           </div>
         )}
 
@@ -1371,8 +1351,45 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
         )}
 
 
-        {/* Layer 4: Content */}
-        <div className="relative z-10 flex flex-col h-full w-full select-none">
+        {/* Layer 4: Content — also handles image drag in edit mode */}
+        <div
+          className={`relative z-10 flex flex-col h-full w-full select-none ${isEditing && hasImage ? 'cursor-move' : ''}`}
+          onMouseDown={(e) => {
+            if (!isEditing || !hasImage) return;
+            // Skip drag if target is an interactive element
+            const target = e.target as HTMLElement;
+            if (target.closest('input, textarea, button, label, [contenteditable]')) return;
+            e.preventDefault();
+            const startX = e.clientX;
+            const startY = e.clientY;
+            const startPanX = editImageConfig.panX;
+            const startPanY = editImageConfig.panY;
+            const container = e.currentTarget as HTMLDivElement;
+            // Find sibling image element for accurate dimension-based drag math
+            const imgEl = container.parentElement?.querySelector('.overflow-hidden img[alt="Background"]') as HTMLImageElement | null;
+            const imgW = imgEl?.offsetWidth || container.offsetWidth;
+            const imgH = imgEl?.offsetHeight || container.offsetHeight;
+
+            const onMove = (moveEvent: MouseEvent) => {
+              const deltaX = moveEvent.clientX - startX;
+              const deltaY = moveEvent.clientY - startY;
+              // translate %: relative to image's own dimensions
+              const changeX = (deltaX / imgW) * 100;
+              const changeY = (deltaY / imgH) * 100;
+              setEditImageConfig(prev => ({
+                ...prev,
+                panX: Math.max(-50, Math.min(150, startPanX + changeX)),
+                panY: Math.max(-50, Math.min(150, startPanY + changeY))
+              }));
+            };
+            const onUp = () => {
+              window.removeEventListener('mousemove', onMove);
+              window.removeEventListener('mouseup', onUp);
+            };
+            window.addEventListener('mousemove', onMove);
+            window.addEventListener('mouseup', onUp);
+          }}
+        >
 
           {isCover ? (
             /* ═══ COVER: full magazine cover layout ═══ */

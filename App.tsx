@@ -261,6 +261,8 @@ const App: React.FC = () => {
   const regenerationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const processingReasonRef = useRef<"manual" | "capacity" | null>(null);
   
+  const editingIndexRef = useRef<number | null>(null);
+  editingIndexRef.current = editingIndex;
   const isDragging = useRef(false);
   const lastX = useRef(0);
   const dragDistance = useRef(0);
@@ -569,14 +571,16 @@ const App: React.FC = () => {
     };
 
     const handlePointerDown = (e: PointerEvent) => {
+      // Disable carousel drag entirely while editing a card (allows image drag in editorial)
+      if (editingIndexRef.current !== null) return;
       // ignore inputs, clickable elements or non-left clicks
       if (
-        e.target instanceof HTMLInputElement || 
-        e.target instanceof HTMLTextAreaElement || 
-        (e.target as HTMLElement).closest('button') || 
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        (e.target as HTMLElement).closest('button') ||
         e.button !== 0
       ) {
-        return; 
+        return;
       }
 
       cancelLandingAnimation();
