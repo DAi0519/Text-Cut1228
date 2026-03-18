@@ -1,12 +1,14 @@
 import React, { useState, useRef, useCallback, useEffect } from "react";
 import { Console } from "./components/Console";
 import { Card, CardHandle, OverflowSplitResult } from "./components/Card";
+import { ImageCropModal } from "./components/ImageCropModal";
 import {
   CardConfig,
   AspectRatio,
   CardSegment,
   FontStyle,
   ImageConfig,
+  ImageAspectRatio,
 } from "./types";
 import { splitTextIntoCards } from "./services/geminiService";
 import { toPng } from "html-to-image";
@@ -158,6 +160,111 @@ const getCapacitySignature = (
   config: Pick<CardConfig, "cardScale" | "aspectRatio" | "fontSize">,
 ) => `${config.cardScale}|${config.aspectRatio}|${config.fontSize}`;
 
+type CropModalState = {
+  cardIndex: number;
+  ratio: ImageAspectRatio;
+  imageSrc: string;
+  initialScale: number;
+  initialPanX: number;
+  initialPanY: number;
+};
+
+const parseImageAspectRatio = (ratio: ImageAspectRatio) => {
+  const [width, height] = ratio.split(":").map(Number);
+  return width / height;
+};
+
+const loadImage = (src: string) =>
+  new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("Failed to load image"));
+    image.src = src;
+  });
+
+const cropImageWithConfig = async (
+  imageSrc: string,
+  ratio: ImageAspectRatio,
+  cropScale: number,
+  cropPanX: number,
+  cropPanY: number,
+) => {
+  const image = await loadImage(imageSrc);
+  const imageRatio = image.naturalWidth / image.naturalHeight;
+  const targetRatio = parseImageAspectRatio(ratio);
+  const viewportWidth = targetRatio;
+  const viewportHeight = 1;
+  const baseDisplayWidth =
+    imageRatio > targetRatio ? imageRatio : targetRatio;
+  const baseDisplayHeight =
+    imageRatio > targetRatio ? 1 : targetRatio / imageRatio;
+  const scaledWidth = baseDisplayWidth * cropScale;
+  const scaledHeight = baseDisplayHeight * cropScale;
+  const left =
+    (viewportWidth - scaledWidth) / 2 +
+    ((cropPanX - 50) / 100) * scaledWidth;
+  const top =
+    (viewportHeight - scaledHeight) / 2 +
+    ((cropPanY - 50) / 100) * scaledHeight;
+  const sourceX = clamp((-left / scaledWidth) * image.naturalWidth, 0, image.naturalWidth);
+  const sourceY = clamp((-top / scaledHeight) * image.naturalHeight, 0, image.naturalHeight);
+  const sourceWidth = clamp(
+    (viewportWidth / scaledWidth) * image.naturalWidth,
+    1,
+    image.naturalWidth - sourceX,
+  );
+  const sourceHeight = clamp(
+    (viewportHeight / scaledHeight) * image.naturalHeight,
+    1,
+    image.naturalHeight - sourceY,
+  );
+  const OUTPUT_LONG_EDGE = 1600;
+  const canvasWidth =
+    targetRatio >= 1
+      ? OUTPUT_LONG_EDGE
+      : Math.round(OUTPUT_LONG_EDGE * targetRatio);
+  const canvasHeight =
+    targetRatio >= 1
+      ? Math.round(OUTPUT_LONG_EDGE / targetRatio)
+      : OUTPUT_LONG_EDGE;
+  const canvas = document.createElement("canvas");
+  canvas.width = canvasWidth;
+  canvas.height = canvasHeight;
+  const context = canvas.getContext("2d");
+
+  if (!context) {
+    throw new Error("Failed to create crop canvas");
+  }
+
+  context.drawImage(
+    image,
+    sourceX,
+    sourceY,
+    sourceWidth,
+    sourceHeight,
+    0,
+    0,
+    canvasWidth,
+    canvasHeight,
+  );
+
+  return canvas.toDataURL("image/png");
+};
+
+const createImageConfig = (
+  overrides?: Partial<ImageConfig>,
+): ImageConfig => ({
+  position: overrides?.position ?? "top",
+  heightRatio: overrides?.heightRatio ?? 0.45,
+  aspectRatio: overrides?.aspectRatio,
+  cropScale: overrides?.cropScale ?? 1,
+  cropPanX: overrides?.cropPanX ?? 50,
+  cropPanY: overrides?.cropPanY ?? 50,
+  scale: overrides?.scale ?? 1,
+  panX: overrides?.panX ?? 50,
+  panY: overrides?.panY ?? 50,
+});
+
 const migrateConfig = (
   raw: Partial<CardConfig>,
   defaults: CardConfig,
@@ -290,6 +397,9 @@ const App: React.FC = () => {
     null,
   );
   const [activeHasImage, setActiveHasImage] = useState(false);
+  const [cropModalState, setCropModalState] = useState<CropModalState | null>(
+    null,
+  );
 
   const [config, setConfig] = useState<CardConfig>(() => {
     const defaultConfig = {
@@ -883,7 +993,13 @@ const App: React.FC = () => {
     }
     setCards((prev) => {
       const newCards = [...prev];
-      newCards[index] = updatedSegment;
+      const existing = newCards[index];
+      newCards[index] = {
+        ...existing,
+        ...updatedSegment,
+        originalImage:
+          updatedSegment.originalImage ?? existing?.originalImage,
+      };
       return newCards;
     });
   };
@@ -994,7 +1110,7 @@ const App: React.FC = () => {
   ) => {
     if (index === editingIndex) {
       setActiveHasImage(hasImage);
-      setActiveEditConfig(config);
+      setActiveEditConfig(createImageConfig(config));
     }
   };
 
@@ -1010,19 +1126,29 @@ const App: React.FC = () => {
       const reader = new FileReader();
       reader.onload = (ev) => {
         const result = ev.target?.result as string;
+        const existingCard = cards[targetIdx];
+        const nextImageConfig = createImageConfig({
+          position: existingCard?.imageConfig?.position,
+          heightRatio: existingCard?.imageConfig?.heightRatio,
+          aspectRatio: existingCard?.imageConfig?.aspectRatio,
+        });
         setHasCardEditsSinceGenerate(true);
         // Keep editing-state preview in sync immediately.
         cardRefs.current[targetIdx]?.setImage(result);
+        cardRefs.current[targetIdx]?.updateImageConfig(nextImageConfig);
         setCards((prev) => {
           const newCards = [...prev];
           newCards[targetIdx] = {
             ...newCards[targetIdx],
             image: result,
+            originalImage: result,
+            imageConfig: nextImageConfig,
           };
           return newCards;
         });
         if (editingIndex === targetIdx) {
           setActiveHasImage(true);
+          setActiveEditConfig(nextImageConfig);
         }
         activeCardIndexForUpload.current = null;
       };
@@ -1057,14 +1183,127 @@ const App: React.FC = () => {
       if (!existing) return prev;
       next[activeCardIndex] = {
         ...existing,
-        imageConfig: {
+        imageConfig: createImageConfig({
           ...(existing.imageConfig ?? {}),
           ...updates,
-        } as ImageConfig,
+        }),
       };
       return next;
     });
   };
+
+  const handleSelectFrameSize = (ratio?: ImageAspectRatio) => {
+    if (activeCardIndex === null) return;
+
+    const activeCard = cards[activeCardIndex];
+    if (!activeCard?.image) return;
+
+    const originalImage = activeCard.originalImage || activeCard.image;
+    if (!originalImage) return;
+
+    if (!ratio) {
+      const restoredConfig = createImageConfig({
+        position: activeCard.imageConfig?.position,
+        heightRatio: activeCard.imageConfig?.heightRatio,
+      });
+
+      setHasCardEditsSinceGenerate(true);
+      cardRefs.current[activeCardIndex]?.setImage(originalImage);
+      cardRefs.current[activeCardIndex]?.updateImageConfig(restoredConfig);
+      setCards((prev) => {
+        const next = [...prev];
+        const existing = next[activeCardIndex];
+        if (!existing) return prev;
+        next[activeCardIndex] = {
+          ...existing,
+          image: originalImage,
+          originalImage,
+          imageConfig: restoredConfig,
+        };
+        return next;
+      });
+
+      if (editingIndex === activeCardIndex) {
+        setActiveEditConfig(restoredConfig);
+        setActiveHasImage(true);
+      }
+      return;
+    }
+
+    const existingConfig = createImageConfig(activeCard.imageConfig);
+    const isSameRatio = existingConfig.aspectRatio === ratio;
+    setCropModalState({
+      cardIndex: activeCardIndex,
+      ratio,
+      imageSrc: originalImage,
+      initialScale: isSameRatio ? existingConfig.cropScale ?? 1 : 1,
+      initialPanX: isSameRatio ? existingConfig.cropPanX ?? 50 : 50,
+      initialPanY: isSameRatio ? existingConfig.cropPanY ?? 50 : 50,
+    });
+  };
+
+  const handleConfirmCrop = useCallback(
+    async ({
+      scale,
+      panX,
+      panY,
+    }: {
+      scale: number;
+      panX: number;
+      panY: number;
+    }) => {
+      if (!cropModalState) return;
+
+      const { cardIndex, ratio, imageSrc } = cropModalState;
+
+      try {
+        const croppedImage = await cropImageWithConfig(
+          imageSrc,
+          ratio,
+          scale,
+          panX,
+          panY,
+        );
+        const currentCard = cards[cardIndex];
+        const nextImageConfig = createImageConfig({
+          ...currentCard?.imageConfig,
+          aspectRatio: ratio,
+          cropScale: scale,
+          cropPanX: panX,
+          cropPanY: panY,
+          scale: 1,
+          panX: 50,
+          panY: 50,
+        });
+
+        setHasCardEditsSinceGenerate(true);
+        cardRefs.current[cardIndex]?.setImage(croppedImage);
+        cardRefs.current[cardIndex]?.updateImageConfig(nextImageConfig);
+        setCards((prev) => {
+          const next = [...prev];
+          const existing = next[cardIndex];
+          if (!existing) return prev;
+          next[cardIndex] = {
+            ...existing,
+            image: croppedImage,
+            originalImage: imageSrc,
+            imageConfig: nextImageConfig,
+          };
+          return next;
+        });
+
+        if (editingIndex === cardIndex) {
+          setActiveHasImage(true);
+          setActiveEditConfig(nextImageConfig);
+        }
+      } catch (error) {
+        console.error("Crop confirm failed", error);
+      } finally {
+        setCropModalState(null);
+      }
+    },
+    [cards, cropModalState, editingIndex],
+  );
 
   const handleRemoveImage = () => {
     if (activeCardIndex === null) return;
@@ -1077,6 +1316,7 @@ const App: React.FC = () => {
       next[activeCardIndex] = {
         ...existing,
         image: undefined,
+        originalImage: undefined,
         imageConfig: undefined,
       };
       return next;
@@ -1476,11 +1716,24 @@ const App: React.FC = () => {
             activeHasImage={activeHasImage}
             activeImageConfig={activeEditConfig}
             onUpdateImageConfig={handleUpdateImageConfig}
+            onSelectFrameSize={handleSelectFrameSize}
             onRemoveImage={handleRemoveImage}
             capacityFeedback={capacityFeedback}
             onHeightChange={setConsoleHeight}
           />
         </div>
+      )}
+
+      {cropModalState && (
+        <ImageCropModal
+          imageSrc={cropModalState.imageSrc}
+          ratio={cropModalState.ratio}
+          initialScale={cropModalState.initialScale}
+          initialPanX={cropModalState.initialPanX}
+          initialPanY={cropModalState.initialPanY}
+          onCancel={() => setCropModalState(null)}
+          onConfirm={handleConfirmCrop}
+        />
       )}
     </div>
   );

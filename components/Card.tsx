@@ -49,6 +49,9 @@ export interface CardHandle {
 const DEFAULT_IMG_CONFIG: ImageConfig = {
   position: 'top',
   heightRatio: 0.45,
+  cropScale: 1,
+  cropPanX: 50,
+  cropPanY: 50,
   scale: 1,
   panX: 50,
   panY: 50

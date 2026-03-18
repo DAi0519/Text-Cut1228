@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { CardConfig, AspectRatio, FontStyle, Preset, Composition, ImageConfig } from '../types';
+import { CardConfig, AspectRatio, FontStyle, Preset, Composition, ImageConfig, ImageAspectRatio } from '../types';
 import { 
   Type, Grid, Crop, Scaling, Layout, 
   ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Square, RectangleHorizontal, 
@@ -35,6 +35,7 @@ interface ConsoleProps {
   activeHasImage: boolean;
   activeImageConfig: ImageConfig | null;
   onUpdateImageConfig: (updates: Partial<ImageConfig>) => void;
+  onSelectFrameSize: (ratio?: ImageAspectRatio) => void;
   onRemoveImage: () => void;
   capacityFeedback?: string | null;
   onHeightChange?: (height: number) => void;
@@ -61,7 +62,7 @@ export const Console: React.FC<ConsoleProps> = ({
   activeCardIndex, editingIndex,
   onToggleLayout, onStartEdit, onSaveEdit, onCancelEdit, onTriggerImage,
   onTriggerAvatarUpload, onDownload, onToggleHighlight,
-  activeHasImage, activeImageConfig, onUpdateImageConfig, onRemoveImage,
+  activeHasImage, activeImageConfig, onUpdateImageConfig, onSelectFrameSize, onRemoveImage,
   capacityFeedback,
   onHeightChange
 }) => {
@@ -157,12 +158,13 @@ export const Console: React.FC<ConsoleProps> = ({
     onUpdateImageConfig({ position: order[(currentIdx + 1) % order.length] });
   };
 
-  const cycleAspectRatio = () => {
-    if (!activeImageConfig) return;
-    const order: (ImageConfig["aspectRatio"] | undefined)[] = [undefined, "1:1", "4:3", "16:9", "3:4"];
-    const currentIdx = order.indexOf(activeImageConfig.aspectRatio);
-    onUpdateImageConfig({ aspectRatio: order[(currentIdx + 1) % order.length] });
-  };
+  const frameSizeOptions: Array<{ label: string; value?: ImageAspectRatio }> = [
+    { label: "Orig" },
+    { label: "1:1", value: "1:1" },
+    { label: "4:3", value: "4:3" },
+    { label: "16:9", value: "16:9" },
+    { label: "3:4", value: "3:4" },
+  ];
 
   const hasActiveCard = activeCardIndex !== null;
 
@@ -401,9 +403,22 @@ export const Console: React.FC<ConsoleProps> = ({
                             <div className="flex flex-col gap-1.5">
                                <div className="flex justify-between text-[9px] font-bold uppercase tracking-wider opacity-40">
                                   <span>Frame Size</span>
-                                  <span className="font-mono">{(activeImageConfig.heightRatio * 100).toFixed(0)}%</span>
+                                  <span className="font-mono">{activeImageConfig.aspectRatio || 'Orig'}</span>
                                </div>
-                               <input type="range" min="0.1" max="0.9" step="0.05" value={activeImageConfig.heightRatio} onChange={(e) => onUpdateImageConfig({ heightRatio: parseFloat(e.target.value) })} className="w-full h-1.5 bg-black/10 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:bg-black [&::-webkit-slider-thumb]:rounded-full hover:[&::-webkit-slider-thumb]:scale-110 transition-all" />
+                               <div className="grid grid-cols-5 gap-1">
+                                  {frameSizeOptions.map((option) => {
+                                    const isActive = (option.value ?? undefined) === (activeImageConfig.aspectRatio ?? undefined);
+                                    return (
+                                      <button
+                                        key={option.label}
+                                        onClick={() => onSelectFrameSize(option.value)}
+                                        className={`h-8 rounded-lg border text-[10px] font-bold uppercase tracking-wide transition-all ${isActive ? 'border-black bg-black text-white shadow-sm' : 'border-black/10 bg-black/[0.03] text-black/55 hover:border-black/20 hover:text-black'}`}
+                                      >
+                                        {option.label}
+                                      </button>
+                                    );
+                                  })}
+                               </div>
                             </div>
                           </div>
 

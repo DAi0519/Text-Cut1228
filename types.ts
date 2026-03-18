@@ -15,6 +15,7 @@ export enum AspectRatio {
 export type Colorway = 'snow' | 'neon';
 
 export type Composition = 'classic' | 'technical' | 'editorial';
+export type ImageAspectRatio = '1:1' | '4:3' | '16:9' | '3:4';
 
 export interface CardConfig {
   // Visuals
@@ -40,8 +41,11 @@ export interface CardConfig {
 
 export interface ImageConfig {
   position: 'top' | 'bottom' | 'left' | 'right';
-  heightRatio: number; // 0.2 to 0.8 (Acts as Width Ratio for Left/Right positions)
-  aspectRatio?: '1:1' | '4:3' | '16:9' | '3:4'; 
+  heightRatio: number; // Legacy display-area ratio for non-cropped cards.
+  aspectRatio?: ImageAspectRatio;
+  cropScale?: number; // Crop-modal zoom level for generating the derived image.
+  cropPanX?: number; // Crop-modal horizontal focus point in percent.
+  cropPanY?: number; // Crop-modal vertical focus point in percent.
   scale: number; // 1 to 3
   panX: number; // 0-100%
   panY: number; // 0-100%
@@ -52,6 +56,7 @@ export interface CardSegment {
   content: string;
   layout?: 'standard' | 'cover';
   image?: string; // Base64 data URL
+  originalImage?: string; // Original uploaded image retained for re-cropping.
   imageConfig?: ImageConfig;
   editorialBrandLabel?: string; // Custom brand name override for editorial Cover
   editorialBadgeText?: string;  // Custom badge text override for editorial Cover (e.g. "Part 1")
