@@ -34,6 +34,9 @@
         --line: rgba(20, 17, 14, 0.08);
         --line-soft: rgba(20, 17, 14, 0.06);
         --accent: #ea580c;
+        --accent-line: rgba(234, 88, 12, 0.5);
+        --accent-fill: rgba(234, 88, 12, 0.08);
+        --accent-fill-text: rgba(24, 21, 18, 0.82);
         --chip-border: rgba(20, 17, 14, 0.1);
         --shadow: 0 28px 58px rgba(33, 28, 23, 0.14);
       }
@@ -117,7 +120,7 @@
       }
 
       .tab.active {
-        color: var(--accent);
+        color: rgba(24, 21, 18, 0.82);
         border-bottom-color: var(--accent);
       }
 
@@ -139,6 +142,13 @@
       .block:first-child {
         border-top: 0;
         padding-top: 6px;
+      }
+
+      .block-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
       }
 
       .section-title {
@@ -166,15 +176,16 @@
         align-items: center;
         justify-content: center;
         font-family: "JetBrains Mono", monospace;
-        font-size: 10px;
-        letter-spacing: 0.12em;
+        font-size: 9px;
+        letter-spacing: 0.08em;
         text-transform: uppercase;
+        white-space: nowrap;
       }
 
       .chip.active {
-        border-color: rgba(234, 88, 12, 0.6);
-        background: rgba(234, 88, 12, 0.09);
-        color: #9a3412;
+        border-color: var(--accent-line);
+        background: var(--accent-fill);
+        color: var(--accent-fill-text);
       }
 
       .swatches {
@@ -314,14 +325,14 @@
       .primary {
         min-height: 42px;
         border-radius: 13px;
-        background: #ea580c;
+        background: var(--accent);
         color: #fff;
         display: flex;
         align-items: center;
         justify-content: center;
         font-family: "JetBrains Mono", monospace;
-        font-size: 10px;
-        letter-spacing: 0.16em;
+        font-size: 9px;
+        letter-spacing: 0.12em;
         text-transform: uppercase;
       }
 
@@ -333,6 +344,8 @@
 
       .btn {
         min-height: 38px;
+        min-width: 0;
+        padding: 0 10px;
         border-radius: 11px;
         border: 1px solid var(--chip-border);
         background: #fff;
@@ -341,15 +354,90 @@
         align-items: center;
         justify-content: center;
         font-family: "JetBrains Mono", monospace;
-        font-size: 10px;
-        letter-spacing: 0.12em;
+        font-size: 8px;
+        letter-spacing: 0.08em;
         text-transform: uppercase;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
       }
 
       .btn.active {
-        border-color: rgba(234, 88, 12, 0.6);
-        background: rgba(234, 88, 12, 0.09);
-        color: #9a3412;
+        border-color: var(--accent-line);
+        background: var(--accent-fill);
+        color: var(--accent-fill-text);
+      }
+
+      .btn.danger {
+        border-color: rgba(239, 68, 68, 0.16);
+        color: rgba(220, 38, 38, 0.76);
+        background: rgba(254, 242, 242, 0.82);
+      }
+
+      .dropdown-anchor {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 8px;
+      }
+
+      .dropdown-trigger {
+        min-height: 34px;
+        min-width: 76px;
+        padding: 0 12px;
+        border-radius: 10px;
+        border: 1px solid var(--chip-border);
+        background: #fff;
+        display: inline-flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 8px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: rgba(24, 21, 18, 0.76);
+      }
+
+      .chevron {
+        font-size: 11px;
+        line-height: 1;
+        color: rgba(24, 21, 18, 0.4);
+      }
+
+      .dropdown-menu {
+        position: static;
+        width: 218px;
+        padding: 8px;
+        border-radius: 14px;
+        border: 1px solid rgba(20, 17, 14, 0.08);
+        background: rgba(255, 255, 255, 0.98);
+        box-shadow: 0 16px 30px rgba(24, 21, 18, 0.12);
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 6px;
+      }
+
+      .menu-item {
+        min-height: 30px;
+        border-radius: 9px;
+        border: 1px solid var(--chip-border);
+        background: #fff;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 8px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: rgba(24, 21, 18, 0.72);
+        white-space: nowrap;
+      }
+
+      .menu-item.active {
+        border-color: var(--accent-line);
+        background: var(--accent-fill);
+        color: rgba(24, 21, 18, 0.82);
       }
 
       .footer {
@@ -374,18 +462,6 @@
         background:
           radial-gradient(circle at 15% 12%, rgba(255, 255, 255, 0.78), transparent 28%),
           linear-gradient(180deg, rgba(21, 18, 15, 0.08), rgba(21, 18, 15, 0.16));
-      }
-
-      .scene-label {
-        position: absolute;
-        top: 18px;
-        left: 20px;
-        z-index: 2;
-        font-family: "JetBrains Mono", monospace;
-        font-size: 10px;
-        letter-spacing: 0.14em;
-        text-transform: uppercase;
-        color: rgba(255, 255, 255, 0.84);
       }
 
       .backdrop {
@@ -414,11 +490,10 @@
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 22px 24px 18px;
+        padding: 18px 24px 16px;
         border-bottom: 1px solid var(--line);
       }
 
-      .modal-kicker,
       .modal-quiet-label {
         font-family: "JetBrains Mono", monospace;
         font-size: 10px;
@@ -426,12 +501,8 @@
         text-transform: uppercase;
       }
 
-      .modal-kicker {
-        color: rgba(24, 21, 18, 0.34);
-      }
-
       .modal-title {
-        margin-top: 6px;
+        margin-top: 0;
         font-size: 16px;
         font-weight: 600;
         color: rgba(24, 21, 18, 0.86);
@@ -458,30 +529,15 @@
       }
 
       .crop-stage {
-        border-radius: 24px;
-        background: #f1f1ee;
-        padding: 18px;
-      }
-
-      .crop-stage-inner {
         position: relative;
         min-height: 540px;
-        border-radius: 20px;
+        border-radius: 22px;
         overflow: hidden;
         background:
-          linear-gradient(180deg, rgba(74, 103, 181, 0.16), rgba(245, 163, 183, 0.14)),
-          #e7e5df;
+          radial-gradient(circle at 18% 16%, rgba(255, 255, 255, 0.5), transparent 20%),
+          linear-gradient(180deg, rgba(74, 103, 181, 0.12), rgba(245, 163, 183, 0.1)),
+          #ece7e1;
         box-shadow: inset 0 0 0 1px rgba(20, 17, 14, 0.06);
-      }
-
-      .crop-stage-inner::before {
-        content: "";
-        position: absolute;
-        inset: 0;
-        background:
-          radial-gradient(circle at 20% 18%, rgba(255, 255, 255, 0.56), transparent 22%),
-          radial-gradient(circle at 75% 24%, rgba(74, 103, 181, 0.18), transparent 20%),
-          linear-gradient(135deg, rgba(20, 17, 14, 0.03), rgba(20, 17, 14, 0));
       }
 
       .crop-frame {
@@ -541,16 +597,21 @@
         display: flex;
         flex-direction: column;
         gap: 18px;
-        border-radius: 24px;
-        background: #fff;
-        padding: 18px;
-        box-shadow: inset 0 0 0 1px rgba(20, 17, 14, 0.06);
+        padding-top: 2px;
       }
 
-      .modal-copy {
-        font-size: 12px;
-        line-height: 1.65;
-        color: rgba(24, 21, 18, 0.5);
+      .crop-info {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .crop-value {
+        font-size: 28px;
+        line-height: 1;
+        font-weight: 600;
+        color: rgba(24, 21, 18, 0.9);
       }
 
       .soft-button,
@@ -586,6 +647,12 @@
         margin-top: auto;
         display: flex;
         flex-direction: column;
+        gap: 10px;
+      }
+
+      .side-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
         gap: 10px;
       }
 
@@ -714,12 +781,14 @@
           </div>
           <div class="body">
             <div class="block">
-              <div class="actions-grid">
+              <div class="actions-grid" style="grid-template-columns: repeat(2, minmax(0, 1fr));">
                 <div class="btn">Switch Layout</div>
                 <div class="btn">Bold Text</div>
-                <div class="btn active">Add Image</div>
               </div>
-              <div class="btn">Upload Avatar</div>
+              <div class="actions-grid" style="grid-template-columns: repeat(2, minmax(0, 1fr));">
+                <div class="btn active">Replace Image</div>
+                <div class="btn">Upload Avatar</div>
+              </div>
             </div>
 
             <div class="block">
@@ -741,6 +810,32 @@
                 <div class="btn">Left</div>
                 <div class="btn">Right</div>
               </div>
+            </div>
+
+            <div class="block">
+              <div class="block-head">
+                <div class="section-title">Frame Size</div>
+                <div class="dropdown-trigger">
+                  <span>1:1</span>
+                  <span class="chevron">▾</span>
+                </div>
+              </div>
+              <div class="dropdown-anchor">
+                <div class="dropdown-menu">
+                  <div class="menu-item">Orig</div>
+                  <div class="menu-item active">1:1</div>
+                  <div class="menu-item">4:3</div>
+                  <div class="menu-item">16:9</div>
+                  <div class="menu-item">3:4</div>
+                  <div class="menu-item">21:9</div>
+                  <div class="menu-item">9:21</div>
+                  <div class="menu-item">9:16</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="block">
+              <div class="btn danger">Remove Image</div>
             </div>
           </div>
         </section>
@@ -785,32 +880,25 @@
         </div>
 
         <div class="modal-scene">
-          <div class="scene-label">Crop Modal Preview</div>
           <div class="backdrop"></div>
           <div class="modal-card">
             <div class="modal-head">
-              <div>
-                <div class="modal-kicker">Crop Preview</div>
-                <div class="modal-title">Confirm frame ratio 1:1</div>
-              </div>
+              <div class="modal-title">Crop Image</div>
               <div class="modal-close">×</div>
             </div>
 
             <div class="modal-body">
               <div class="crop-stage">
-                <div class="crop-stage-inner">
-                  <div class="crop-frame">
-                    <div class="crop-image"></div>
-                    <div class="crop-guides"></div>
-                  </div>
+                <div class="crop-frame">
+                  <div class="crop-image"></div>
+                  <div class="crop-guides"></div>
                 </div>
               </div>
 
               <div class="side-panel">
-                <div>
+                <div class="crop-info">
                   <div class="modal-quiet-label" style="color: rgba(24, 21, 18, 0.34);">Frame Size</div>
-                  <div class="modal-title" style="margin-top: 8px;">1:1</div>
-                  <div class="modal-copy">Drag to position the crop. Zoom in to focus on the subject before confirming.</div>
+                  <div class="crop-value">1:1</div>
                 </div>
 
                 <div class="slider">
@@ -822,11 +910,12 @@
                   </div>
                 </div>
 
-                <div class="soft-button">Reset Crop</div>
-
                 <div class="side-actions">
+                  <div class="side-row">
+                    <div class="soft-button">Reset</div>
+                    <div class="ghost-button">Cancel</div>
+                  </div>
                   <div class="dark-button">Confirm Crop</div>
-                  <div class="ghost-button">Cancel</div>
                 </div>
               </div>
             </div>

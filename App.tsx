@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from "react";
-import { Console } from "./components/Console";
+import { Console, type ConsoleTabId } from "./components/Console";
 import { Card, CardHandle, OverflowSplitResult } from "./components/Card";
 import { ImageCropModal } from "./components/ImageCropModal";
 import {
@@ -27,11 +27,29 @@ const VALID_FONT_STYLES = new Set([
   FontStyle.OPPO,
   FontStyle.SWEI,
 ]);
-const CONFIG_VERSION = 4;
+const CONFIG_VERSION = 5;
 const CARD_BASE_WIDTHS: Record<AspectRatio, number> = {
   [AspectRatio.PORTRAIT]: 380,
   [AspectRatio.SQUARE]: 480,
   [AspectRatio.WIDE]: 600,
+};
+const CONSOLE_COLLAPSED_SAFE_AREA = 92;
+const PORTRAIT_STAGE_INSET_MIN = 24;
+const PORTRAIT_STAGE_INSET_MAX = 72;
+
+/* ─────────────────────────────────────────────────────────
+ * PANEL CARD STORYBOARD
+ *
+ * Read top-to-bottom. Each panel shifts the deck into a different stance.
+ *
+ *    0ms   panel tab changes and the active card receives the new focus mode
+ *  120ms   inactive cards ease back using opacity + scale only (no blur)
+ *  240ms   active card shadow settles into its new depth
+ *  420ms   the full deck reaches its resting pose without a hard snap
+ * ───────────────────────────────────────────────────────── */
+const PANEL_CARD_MOTION = {
+  duration: 520, // ms for scale / opacity handoff when panel mode changes
+  easing: "cubic-bezier(0.16,1,0.3,1)",
 };
 
 /* ─────────────────────────────────────────────────────────
@@ -87,6 +105,42 @@ const FLOW_FILL_THRESHOLD = 0.92; // absorb next card when below this occupancy
 
 const clamp = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value));
+
+const getCardWrapperStateClass = (
+  isActive: boolean,
+  panelTab: ConsoleTabId,
+  isEditing: boolean,
+) => {
+  if (isActive) {
+    return "scale-100 opacity-100 translate-y-0 z-10";
+  }
+
+  if (panelTab === "editor" || isEditing) {
+    return "scale-[0.955] opacity-[0.42] translate-y-0 z-0 hover:opacity-[0.54] cursor-pointer";
+  }
+
+  if (panelTab === "source") {
+    return "scale-[0.965] opacity-[0.5] translate-y-0 z-0 hover:opacity-[0.62] cursor-pointer";
+  }
+
+  return "scale-[0.972] opacity-[0.6] translate-y-0 z-0 hover:opacity-[0.72] cursor-pointer";
+};
+
+const getCardSurfaceStateClass = (
+  isActive: boolean,
+  panelTab: ConsoleTabId,
+  isEditing: boolean,
+) => {
+  if (isActive && (panelTab === "editor" || isEditing)) {
+    return "shadow-[0_26px_60px_-30px_rgba(15,23,42,0.28)]";
+  }
+
+  if (isActive) {
+    return "shadow-[0_24px_56px_-30px_rgba(15,23,42,0.24)]";
+  }
+
+  return "shadow-[0_18px_40px_-30px_rgba(15,23,42,0.14)]";
+};
 
 const getPreviewFontClass = (style: FontStyle) => {
   switch (style) {
@@ -155,6 +209,14 @@ const canNormalizeAdjacentCards = (
 
 const getCardWidth = (ratio: AspectRatio, scale: number) =>
   Math.round(CARD_BASE_WIDTHS[ratio] * scale);
+
+const getAspectRatioValue = (ratio: AspectRatio) => {
+  const [width, height] = ratio.split(":").map(Number);
+  return width / height;
+};
+
+const getCardHeight = (ratio: AspectRatio, scale: number) =>
+  Math.round(getCardWidth(ratio, scale) / getAspectRatioValue(ratio));
 
 const getCapacitySignature = (
   config: Pick<CardConfig, "cardScale" | "aspectRatio" | "fontSize">,
@@ -285,7 +347,7 @@ const migrateConfig = (
     next.cardScale = defaults.cardScale;
   }
 
-  if (raw.fontSize == null || raw.fontSize === 1.0) {
+  if (raw.fontSize == null || raw.fontSize === 1.0 || raw.fontSize === 1.05) {
     next.fontSize = defaults.fontSize;
   }
 
@@ -352,9 +414,16 @@ const App: React.FC = () => {
   const [cards, setCards] = useState<CardSegment[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(0.85);
+  const [viewportSize, setViewportSize] = useState(() => ({
+    width: typeof window !== "undefined" ? window.innerWidth : 1440,
+    height: typeof window !== "undefined" ? window.innerHeight : 900,
+  }));
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [activeCardIndex, setActiveCardIndex] = useState<number | null>(null);
-  const [consoleHeight, setConsoleHeight] = useState(0);
+  const [activeConsoleTab, setActiveConsoleTab] =
+    useState<ConsoleTabId>("style");
+  const [isConsoleCollapsed, setIsConsoleCollapsed] = useState(false);
+  const [consoleHeight, setConsoleHeight] = useState(236);
   const [isScrolling, setIsScrolling] = useState(false);
   const [lastGeneratedCapacitySignature, setLastGeneratedCapacitySignature] =
     useState<string | null>(null);
@@ -410,7 +479,7 @@ const App: React.FC = () => {
       fontStyle: FontStyle.SWEI,
       composition: "classic",
       aspectRatio: AspectRatio.PORTRAIT,
-      fontSize: 1.05,
+      fontSize: 1.3,
       cardScale: 1.35,
       editorialTitleScale: 0.9,
       showMetadata: true,
@@ -449,6 +518,16 @@ const App: React.FC = () => {
     localStorage.setItem("textcuts_config_version", String(CONFIG_VERSION));
   }, [config]);
   useEffect(() => {
+    const updateViewportSize = () => {
+      const { innerWidth, innerHeight } = window;
+      setViewportSize({ width: innerWidth, height: innerHeight });
+    };
+
+    updateViewportSize();
+    window.addEventListener("resize", updateViewportSize);
+    return () => window.removeEventListener("resize", updateViewportSize);
+  }, []);
+  useEffect(() => {
     return () => {
       if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
       if (regenerationTimeoutRef.current) {
@@ -476,12 +555,32 @@ const App: React.FC = () => {
   useEffect(() => {
     const container = scrollContainerRef.current;
     if (!container || cards.length === 0) return;
+    const axis: "x" = "x";
 
-    const getMaxScrollLeft = () =>
-      Math.max(0, container.scrollWidth - container.clientWidth);
+    const getScrollPosition = () =>
+      axis === "x" ? container.scrollLeft : container.scrollTop;
+    const setScrollPosition = (value: number) => {
+      if (axis === "x") {
+        container.scrollLeft = value;
+      } else {
+        container.scrollTop = value;
+      }
+    };
+    const getViewportSize = () =>
+      axis === "x" ? container.clientWidth : container.clientHeight;
+    const getMaxScroll = () =>
+      axis === "x"
+        ? Math.max(0, container.scrollWidth - container.clientWidth)
+        : Math.max(0, container.scrollHeight - container.clientHeight);
+    const getItemOffset = (element: HTMLElement) =>
+      axis === "x" ? element.offsetLeft : element.offsetTop;
+    const getItemSize = (element: HTMLElement) =>
+      axis === "x" ? element.offsetWidth : element.offsetHeight;
+    const getPointerCoord = (event: PointerEvent) =>
+      axis === "x" ? event.clientX : event.clientY;
 
     const setSnapEnabled = (enabled: boolean) => {
-      container.style.scrollSnapType = enabled ? "x mandatory" : "none";
+      container.style.scrollSnapType = enabled ? `${axis} mandatory` : "none";
     };
 
     const cancelLandingAnimation = () => {
@@ -504,17 +603,17 @@ const App: React.FC = () => {
       lastWheelFrameTimeRef.current = null;
     };
 
-    const animateScrollTo = (targetLeft: number, releaseVelocity = 0) => {
+    const animateScrollTo = (targetPosition: number, releaseVelocity = 0) => {
       cancelWheelMomentum();
       cancelLandingAnimation();
 
-      const startLeft = container.scrollLeft;
-      const maxScrollLeft = getMaxScrollLeft();
-      const clampedTarget = clamp(targetLeft, 0, maxScrollLeft);
-      const distance = clampedTarget - startLeft;
+      const startPosition = getScrollPosition();
+      const maxScroll = getMaxScroll();
+      const clampedTarget = clamp(targetPosition, 0, maxScroll);
+      const distance = clampedTarget - startPosition;
 
       if (Math.abs(distance) < 0.5) {
-        container.scrollLeft = clampedTarget;
+        setScrollPosition(clampedTarget);
         setSnapEnabled(true);
         return;
       }
@@ -536,14 +635,14 @@ const App: React.FC = () => {
       const step = (now: number) => {
         const progress = clamp((now - startedAt) / duration, 0, 1);
         const eased = 1 - Math.pow(1 - progress, 3);
-        container.scrollLeft = startLeft + distance * eased;
+        setScrollPosition(startPosition + distance * eased);
 
         if (progress < 1) {
           landingAnimationFrameRef.current = requestAnimationFrame(step);
           return;
         }
 
-        container.scrollLeft = clampedTarget;
+        setScrollPosition(clampedTarget);
         setSnapEnabled(true);
         landingAnimationFrameRef.current = null;
       };
@@ -551,26 +650,24 @@ const App: React.FC = () => {
       landingAnimationFrameRef.current = requestAnimationFrame(step);
     };
 
-    const getClosestSnapLeft = (projectedCenter: number) => {
+    const getClosestSnapPosition = (projectedCenter: number) => {
       let minDistance = Infinity;
-      let closestLeft = container.scrollLeft;
+      let closestPosition = getScrollPosition();
       const cardElements = container.querySelectorAll(".card-wrapper");
 
       cardElements.forEach((el) => {
         const element = el as HTMLElement;
-        const rectCenter = element.offsetLeft + element.offsetWidth / 2;
+        const rectCenter = getItemOffset(element) + getItemSize(element) / 2;
         const distance = Math.abs(projectedCenter - rectCenter);
 
         if (distance < minDistance) {
           minDistance = distance;
-          closestLeft =
-            element.offsetLeft -
-            container.clientWidth / 2 +
-            element.offsetWidth / 2;
+          closestPosition =
+            getItemOffset(element) - getViewportSize() / 2 + getItemSize(element) / 2;
         }
       });
 
-      return clamp(closestLeft, 0, getMaxScrollLeft());
+      return clamp(closestPosition, 0, getMaxScroll());
     };
 
     const measureActiveCard = () => {
@@ -578,14 +675,15 @@ const App: React.FC = () => {
       setIsScrolling(true);
       if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
       
-      const center = container.scrollLeft + container.clientWidth / 2;
+      const center = getScrollPosition() + getViewportSize() / 2;
       let minDistance = Infinity;
       let closestIndex = 0;
 
       // Find card closest to center
       const cardElements = container.querySelectorAll('.card-wrapper');
       cardElements.forEach((el, idx) => {
-        const rect = (el as HTMLElement).offsetLeft + (el as HTMLElement).offsetWidth / 2;
+        const element = el as HTMLElement;
+        const rect = getItemOffset(element) + getItemSize(element) / 2;
         const distance = Math.abs(center - rect);
         if (distance < minDistance) {
           minDistance = distance;
@@ -615,10 +713,16 @@ const App: React.FC = () => {
         return;
       }
 
-      const useHorizontalIntent =
-        Math.abs(e.deltaX) >=
-        Math.abs(e.deltaY) * WHEEL_INTERACTION.horizontalBiasRatio;
-      const rawDelta = useHorizontalIntent ? e.deltaX : e.deltaY;
+      const rawDelta =
+        axis === "x"
+          ? Math.abs(e.deltaX) >=
+            Math.abs(e.deltaY) * WHEEL_INTERACTION.horizontalBiasRatio
+            ? e.deltaX
+            : e.deltaY
+          : Math.abs(e.deltaY) >=
+              Math.abs(e.deltaX) * WHEEL_INTERACTION.horizontalBiasRatio
+            ? e.deltaY
+            : e.deltaX;
 
       if (rawDelta === 0) return;
 
@@ -630,7 +734,7 @@ const App: React.FC = () => {
         e.deltaMode === WheelEvent.DOM_DELTA_LINE
           ? WHEEL_INTERACTION.lineStep
           : e.deltaMode === WheelEvent.DOM_DELTA_PAGE
-            ? container.clientWidth * WHEEL_INTERACTION.pageFactor
+            ? getViewportSize() * WHEEL_INTERACTION.pageFactor
             : 1;
       const impulse = rawDelta * deltaMultiplier * WHEEL_INTERACTION.impulseFactor;
 
@@ -647,11 +751,11 @@ const App: React.FC = () => {
           lastWheelFrameTimeRef.current = now;
 
           const frameRatio = dt / 16;
-          container.scrollLeft = clamp(
-            container.scrollLeft + wheelVelocityRef.current * frameRatio,
+          setScrollPosition(clamp(
+            getScrollPosition() + wheelVelocityRef.current * frameRatio,
             0,
-            getMaxScrollLeft(),
-          );
+            getMaxScroll(),
+          ));
 
           wheelVelocityRef.current *= Math.pow(
             WHEEL_INTERACTION.frictionPerFrame,
@@ -676,11 +780,11 @@ const App: React.FC = () => {
       wheelSnapTimeoutRef.current = setTimeout(() => {
         wheelSnapTimeoutRef.current = null;
         const projectedCenter =
-          container.scrollLeft +
-          container.clientWidth / 2 +
+          getScrollPosition() +
+          getViewportSize() / 2 +
           wheelVelocityRef.current * WHEEL_INTERACTION.snapProjection;
-        const targetLeft = getClosestSnapLeft(projectedCenter);
-        animateScrollTo(targetLeft, wheelVelocityRef.current / 16);
+        const targetPosition = getClosestSnapPosition(projectedCenter);
+        animateScrollTo(targetPosition, wheelVelocityRef.current / 16);
       }, WHEEL_INTERACTION.snapDelay);
     };
 
@@ -701,7 +805,7 @@ const App: React.FC = () => {
       cancelWheelMomentum();
       isDragging.current = true;
       dragDistance.current = 0;
-      lastX.current = e.clientX;
+      lastX.current = getPointerCoord(e);
       velocity.current = 0;
       lastTime.current = performance.now();
       activePointerId.current = e.pointerId;
@@ -719,23 +823,23 @@ const App: React.FC = () => {
       if (!isDragging.current || activePointerId.current !== e.pointerId) return;
       e.preventDefault();
       
-      const currentX = e.clientX;
+      const currentCoord = getPointerCoord(e);
       const currentTime = performance.now();
       
-      const deltaX = currentX - lastX.current;
+      const delta = currentCoord - lastX.current;
       const dt = currentTime - lastTime.current || 16;
       
       // Instant exact 1:1 scroll without anchor rubberbanding
-      container.scrollLeft -= deltaX;
+      setScrollPosition(getScrollPosition() - delta);
 
       // Blend pointer samples so the release velocity feels stable, not twitchy.
-      const sampleVelocity = deltaX / dt;
+      const sampleVelocity = delta / dt;
       velocity.current =
         velocity.current * (1 - DRAG_INTERACTION.velocitySampleWeight) +
         sampleVelocity * DRAG_INTERACTION.velocitySampleWeight;
       
-      dragDistance.current += Math.abs(deltaX);
-      lastX.current = currentX;
+      dragDistance.current += Math.abs(delta);
+      lastX.current = currentCoord;
       lastTime.current = currentTime;
     };
 
@@ -753,10 +857,10 @@ const App: React.FC = () => {
           ? velocity.current * DRAG_INTERACTION.velocityProjection
           : 0;
       const predictedCenter =
-        container.scrollLeft + container.clientWidth / 2 - projection;
-      const closestLeft = getClosestSnapLeft(predictedCenter);
+        getScrollPosition() + getViewportSize() / 2 - projection;
+      const closestPosition = getClosestSnapPosition(predictedCenter);
 
-      animateScrollTo(closestLeft, velocity.current);
+      animateScrollTo(closestPosition, velocity.current);
     };
 
     const handlePointerCancel = (e: PointerEvent) => {
@@ -1492,12 +1596,74 @@ const App: React.FC = () => {
   };
 
   const activeCardWidth = getCardWidth(config.aspectRatio, config.cardScale);
+  const activeCardHeight = getCardHeight(config.aspectRatio, config.cardScale);
+  const bottomDockSafeArea = isConsoleCollapsed
+    ? CONSOLE_COLLAPSED_SAFE_AREA
+    : consoleHeight + 48;
+  const portraitAvailableStageHeight = Math.max(
+    320,
+    viewportSize.height - bottomDockSafeArea - PORTRAIT_STAGE_INSET_MIN * 2,
+  );
+  const portraitAvailableStageWidth = Math.max(
+    320,
+    viewportSize.width - 48,
+  );
+  const portraitFitZoom = Math.min(
+    zoomLevel,
+    portraitAvailableStageHeight / activeCardHeight,
+    portraitAvailableStageWidth / activeCardWidth
+  );
+  const deckZoomLevel = portraitFitZoom;
+  const portraitDeckInset = clamp(
+    (viewportSize.height - bottomDockSafeArea - activeCardHeight * deckZoomLevel) / 2,
+    PORTRAIT_STAGE_INSET_MIN,
+    PORTRAIT_STAGE_INSET_MAX,
+  );
   const capacityFeedback =
     pendingRegeneration && hasCardEditsSinceGenerate
       ? "Capacity changed. Re-generate to reflow text."
       : pendingRegeneration || processingReasonRef.current === "capacity"
         ? "Card capacity changed, regenerating..."
         : null;
+  const consoleProps = {
+    inputText,
+    setInputText,
+    config,
+    setConfig,
+    isProcessing,
+    onProcess: handleProcess,
+    onDownloadAll: handleDownloadAll,
+    hasContent,
+    zoomLevel,
+    setZoomLevel,
+    activeCardIndex,
+    editingIndex,
+    onToggleLayout: () =>
+      activeCardIndex !== null && cardRefs.current[activeCardIndex]?.toggleLayout(),
+    onStartEdit: () =>
+      activeCardIndex !== null && handleStartEdit(activeCardIndex),
+    onSaveEdit: () =>
+      activeCardIndex !== null && handleSaveEdit(activeCardIndex),
+    onCancelEdit: () =>
+      activeCardIndex !== null && handleCancelEdit(activeCardIndex),
+    onTriggerImage: () =>
+      activeCardIndex !== null && triggerImageUpload(activeCardIndex),
+    onTriggerAvatarUpload: triggerAvatarUpload,
+    onDownload: () =>
+      activeCardIndex !== null && handleDownload(activeCardIndex),
+    onToggleHighlight: () =>
+      activeCardIndex !== null && cardRefs.current[activeCardIndex]?.toggleHighlight(),
+    activeHasImage,
+    activeImageConfig: activeEditConfig,
+    onUpdateImageConfig: handleUpdateImageConfig,
+    onSelectFrameSize: handleSelectFrameSize,
+    onRemoveImage: handleRemoveImage,
+    capacityFeedback,
+    isCollapsed: isConsoleCollapsed,
+    onToggleCollapse: () => setIsConsoleCollapsed((prev) => !prev),
+    onHeightChange: setConsoleHeight,
+    onActiveTabChange: setActiveConsoleTab,
+  };
 
   // --- Render ---
   return (
@@ -1547,62 +1713,65 @@ const App: React.FC = () => {
               </div>
 
               {/* Hero Input Area */}
-              <div className="w-full max-w-4xl relative group">
-                <div className="relative bg-white rounded-3xl shadow-[0_18px_44px_-24px_rgba(15,23,42,0.14)] border border-black/[0.06] overflow-hidden flex flex-col transition-all duration-300 focus-within:shadow-[0_24px_56px_-26px_rgba(15,23,42,0.18)] focus-within:border-black/10 focus-within:translate-y-[-2px]">
+              <div className="w-full max-w-3xl aspect-[4/3] relative group mx-auto">
+                <div className="absolute inset-0 bg-white rounded-3xl shadow-[0_2px_8px_-2px_rgba(15,23,42,0.06),0_12px_24px_-4px_rgba(15,23,42,0.08),0_24px_64px_-12px_rgba(15,23,42,0.12)] border border-black/[0.06] overflow-hidden flex flex-col transition-colors duration-300 focus-within:border-black/10">
                   
-                  {/* Metadata Inputs */}
-                  <div className="flex border-b border-black/[0.06] bg-white">
-                    <div className="flex-1 border-r border-black/5 flex items-center px-6">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-black/30 shrink-0 select-none w-12">Title</span>
+                  {/* Metadata & Content: 2-Column Grid Area */}
+                  <div className="flex flex-col flex-1 min-h-0 px-8 pt-7 pb-6">
+                    {/* Header Row 1: Title */}
+                    <div className="flex items-center mb-1 shrink-0">
+                      <span className="text-xs font-bold uppercase tracking-wider text-black/90 shrink-0 select-none w-24">Title</span>
                       <input
                         type="text"
                         value={config.title}
                         onChange={(e) => setConfig(prev => ({ ...prev, title: e.target.value }))}
-                        className={`w-full h-12 bg-transparent text-base font-semibold outline-none text-black/80 placeholder:text-black/20 tracking-[0.01em] px-2 ${getPreviewFontClass(config.fontStyle)}`}
+                        className="w-full h-10 bg-transparent text-xl font-bold outline-none text-black/90 placeholder:text-black/20 tracking-[0.01em] font-oppo"
                       />
                     </div>
-                    <div className="w-1/3 flex items-center px-6">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-black/30 shrink-0 select-none w-14">Author</span>
+                    {/* Header Row 2: Author */}
+                    <div className="flex items-center mb-3 shrink-0">
+                      <span className="text-xs font-bold uppercase tracking-wider text-black/90 shrink-0 select-none w-24">Author</span>
                       <input
                         type="text"
                         value={config.authorName}
                         onChange={(e) => setConfig(prev => ({ ...prev, authorName: e.target.value }))}
-                        className={`w-full h-12 bg-transparent text-sm font-medium outline-none text-black/80 placeholder:text-black/20 tracking-[0.01em] px-2 ${getPreviewFontClass(config.fontStyle)}`}
+                        className="w-full h-8 bg-transparent text-base font-medium outline-none text-black/60 placeholder:text-black/20 tracking-[0.01em] font-oppo"
+                      />
+                    </div>
+                    {/* Body Content Row */}
+                    <div className="flex flex-1 min-h-0">
+                      <span className="text-xs font-bold uppercase tracking-wider text-black/90 shrink-0 select-none w-24 pt-[8px]">Content</span>
+                      <textarea
+                        value={inputText}
+                        onChange={(e) => setInputText(e.target.value)}
+                        placeholder="Paste your article or notes here..."
+                        className="w-full h-full flex-1 text-lg text-black/90 placeholder:text-black/20 outline-none resize-none bg-transparent leading-[1.8] font-oppo tracking-wide selection:bg-orange-100 pr-4 -mr-4 custom-scrollbar"
+                        spellCheck={false}
                       />
                     </div>
                   </div>
-
-                  <textarea
-                    value={inputText}
-                    onChange={(e) => setInputText(e.target.value)}
-                    placeholder="Paste your article or notes here..."
-                    className="w-full h-52 px-8 py-7 text-xl text-black/90 placeholder:text-black/20 outline-none resize-none bg-transparent leading-relaxed font-serif tracking-wide selection:bg-orange-100"
-                    spellCheck={false}
-                  />
                   
-                  {/* Action Bar */}
-                  <div className="flex justify-end border-t border-black/[0.06] bg-white px-6 py-4">
-                     <button
-                        onClick={handleProcess}
-                        disabled={!inputText.trim() || isProcessing}
-                        className={`
-                          h-12 rounded-2xl px-5 flex items-center justify-center gap-3 transition-all duration-300
-                          ${!inputText.trim() || isProcessing
-                            ? "bg-black/[0.03] text-black/25 cursor-not-allowed"
-                            : "bg-black text-white hover:bg-[#ea580c] active:scale-[0.98]"
-                          }
-                        `}
-                     >
-                        <span className="text-[11px] font-bold uppercase tracking-[0.2em]">
-                          {isProcessing ? "Processing" : "Generate Cards"}
-                        </span>
-                        {isProcessing ? (
-                          <div className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin"></div>
-                        ) : (
-                          <ArrowRight size={18} strokeWidth={2.5} />
-                        )}
-                     </button>
-                  </div>
+                  {/* Full-width Structural Action Bar */}
+                  <button
+                     onClick={handleProcess}
+                     disabled={!inputText.trim() || isProcessing}
+                     className={`
+                       w-full h-12 shrink-0 flex items-center justify-end px-8 gap-3 transition-colors duration-300 border-t outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#ea580c]
+                       ${!inputText.trim() || isProcessing
+                         ? "border-black/[0.06] bg-black/[0.02] text-black/25 cursor-not-allowed"
+                         : "border-black/[0.08] bg-white text-black/80 hover:bg-[#ea580c] hover:border-[#ea580c] hover:text-white active:bg-[#c24100]"
+                       }
+                     `}
+                  >
+                     <span className="text-xs font-bold uppercase tracking-[0.2em] relative top-[0.5px]">
+                       {isProcessing ? "Processing" : "Generate Cards"}
+                     </span>
+                     {isProcessing ? (
+                       <div className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin"></div>
+                     ) : (
+                       <ArrowRight size={16} strokeWidth={2.5} />
+                     )}
+                  </button>
                 </div>
               </div>
 
@@ -1612,67 +1781,83 @@ const App: React.FC = () => {
           // --- RESULT DECK MODE ---
           <>
             <div 
-               ref={scrollContainerRef}
-               className={`absolute inset-0 flex items-center overflow-x-auto snap-x snap-mandatory px-[50vw] custom-scrollbar animate-in fade-in duration-1000 transition-opacity duration-300 ${isLayoutSettling ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
-               style={{ 
-                 paddingLeft: `calc(50vw - ${activeCardWidth / 2}px)`, 
-                 paddingRight: `calc(50vw - ${activeCardWidth / 2}px)`,
-                 paddingBottom: hasContent ? consoleHeight + 40 : 0,
-                 transition: 'padding-bottom 0.5s cubic-bezier(0.32, 0.72, 0, 1), opacity 220ms ease',
-                 touchAction: "pan-y pinch-zoom",
-                 overscrollBehaviorX: "contain",
-               }}
-            >
-               <div className="flex items-center gap-12 py-20">
-                  {cards.map((segment, idx) => (
-                    <div
-                      key={idx}
-                      className={`card-wrapper flex-shrink-0 snap-center transition-[transform,opacity,filter] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-                        activeCardIndex === idx 
-                          ? 'scale-100 opacity-100 z-10 filter-none' 
-                          : 'scale-[0.94] opacity-50 z-0 blur-[0.5px] hover:opacity-70 cursor-pointer'
-                      }`}
-                    >
+                 ref={scrollContainerRef}
+                 className={`absolute inset-0 flex items-center overflow-x-auto snap-x snap-mandatory px-[50vw] custom-scrollbar animate-in fade-in duration-1000 transition-opacity duration-300 ${isLayoutSettling ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
+                 style={{ 
+                   paddingLeft: `calc(50vw - ${activeCardWidth / 2}px)`, 
+                   paddingRight: `calc(50vw - ${activeCardWidth / 2}px)`,
+                   paddingTop: hasContent ? portraitDeckInset : 0,
+                   paddingBottom: hasContent ? bottomDockSafeArea : 0,
+                   transition: 'opacity 220ms ease',
+                   touchAction: "pan-y pinch-zoom",
+                   overscrollBehaviorX: "contain",
+                 }}
+              >
+                 <div className="flex items-center gap-12 min-h-full">
+                    {cards.map((segment, idx) => (
                       <div
-                        className={`relative rounded-2xl shadow-xl bg-white mx-auto overflow-hidden ring-1 ring-black/5 transition-transform duration-300 will-change-transform ${isScrolling && editingIndex !== idx ? 'pointer-events-none' : ''}`}
+                        key={idx}
+                        className={`card-wrapper flex-shrink-0 snap-center transform-gpu transition-[transform,opacity] ${getCardWrapperStateClass(
+                          activeCardIndex === idx,
+                          activeConsoleTab,
+                          editingIndex === idx,
+                        )}`}
                         style={{
-                          ...getCardStyle(config.aspectRatio, config.cardScale),
-                          // @ts-ignore
-                          zoom: zoomLevel,
+                          willChange: "transform, opacity",
                           transformOrigin: "center center",
+                          backfaceVisibility: "hidden",
+                          transitionDuration: `${PANEL_CARD_MOTION.duration}ms`,
+                          transitionTimingFunction: PANEL_CARD_MOTION.easing,
                         }}
                       >
-                        <Card
-                          ref={(handle) => {
-                            cardRefs.current[idx] = handle;
-                          }}
-                          content={segment.content}
-                          sectionTitle={segment.title}
-                          layout={segment.layout}
-                          image={segment.image}
-                          imageConfig={segment.imageConfig}
-                          editorialBrandLabel={segment.editorialBrandLabel}
-                          editorialBadgeText={segment.editorialBadgeText}
-                          index={idx}
-                          total={cards.length}
-                          config={config}
-                          onUpdate={(updated) => handleUpdateCard(idx, updated)}
-                          onSplit={(splitSegment) =>
-                            handleSplitCard(idx, splitSegment)
-                          }
-                          onEditChange={(hasImage, cfg) =>
-                            handleEditStateChange(idx, hasImage, cfg)
-                          }
-                          onAvatarUpload={triggerAvatarUpload}
-                          showOverflowControl={
-                            hasCardEditsSinceGenerate && !pendingOverflowNormalization
-                          }
-                        />
+                        <div
+                            className={`relative rounded-2xl bg-white mx-auto overflow-hidden ring-1 ring-black/5 transform-gpu transition-[transform,box-shadow] ${getCardSurfaceStateClass(
+                              activeCardIndex === idx,
+                              activeConsoleTab,
+                              editingIndex === idx,
+                            )} ${isScrolling && editingIndex !== idx ? 'pointer-events-none' : ''}`}
+                            style={{
+                              ...getCardStyle(config.aspectRatio, config.cardScale),
+                              // @ts-ignore
+                              zoom: deckZoomLevel,
+                              transformOrigin: "center center",
+                              willChange: "transform, box-shadow",
+                              backfaceVisibility: "hidden",
+                              transitionDuration: `${PANEL_CARD_MOTION.duration}ms`,
+                              transitionTimingFunction: PANEL_CARD_MOTION.easing,
+                            }}
+                          >
+                          <Card
+                            ref={(handle) => {
+                              cardRefs.current[idx] = handle;
+                            }}
+                            content={segment.content}
+                            sectionTitle={segment.title}
+                            layout={segment.layout}
+                            image={segment.image}
+                            imageConfig={segment.imageConfig}
+                            editorialBrandLabel={segment.editorialBrandLabel}
+                            editorialBadgeText={segment.editorialBadgeText}
+                            index={idx}
+                            total={cards.length}
+                            config={config}
+                            onUpdate={(updated) => handleUpdateCard(idx, updated)}
+                            onSplit={(splitSegment) =>
+                              handleSplitCard(idx, splitSegment)
+                            }
+                            onEditChange={(hasImage, cfg) =>
+                              handleEditStateChange(idx, hasImage, cfg)
+                            }
+                            onAvatarUpload={triggerAvatarUpload}
+                            showOverflowControl={
+                              hasCardEditsSinceGenerate && !pendingOverflowNormalization
+                            }
+                          />
+                        </div>
                       </div>
-                    </div>
-                  ))}
-               </div>
-            </div>
+                    ))}
+                 </div>
+              </div>
 
             {isLayoutSettling && (
               <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-4 bg-[#fafafa]/78 backdrop-blur-[2px]">
@@ -1689,38 +1874,7 @@ const App: React.FC = () => {
       {/* Console (Bottom Panel) - Only visible when content exists */}
       {hasContent && (
         <div className="animate-in slide-in-from-bottom-full duration-700 ease-out">
-          <Console
-            inputText={inputText}
-            setInputText={setInputText}
-            config={config}
-            setConfig={setConfig}
-            isProcessing={isProcessing}
-            onProcess={handleProcess}
-            onDownloadAll={handleDownloadAll}
-            hasContent={hasContent}
-            zoomLevel={zoomLevel}
-            setZoomLevel={setZoomLevel}
-            
-            activeCardIndex={activeCardIndex}
-            editingIndex={editingIndex}
-            
-            onToggleLayout={() => activeCardIndex !== null && cardRefs.current[activeCardIndex]?.toggleLayout()}
-            onStartEdit={() => activeCardIndex !== null && handleStartEdit(activeCardIndex)}
-            onSaveEdit={() => activeCardIndex !== null && handleSaveEdit(activeCardIndex)}
-            onCancelEdit={() => activeCardIndex !== null && handleCancelEdit(activeCardIndex)}
-            onTriggerImage={() => activeCardIndex !== null && triggerImageUpload(activeCardIndex)}
-            onTriggerAvatarUpload={triggerAvatarUpload}
-            onDownload={() => activeCardIndex !== null && handleDownload(activeCardIndex)}
-            onToggleHighlight={() => activeCardIndex !== null && cardRefs.current[activeCardIndex]?.toggleHighlight()}
-            
-            activeHasImage={activeHasImage}
-            activeImageConfig={activeEditConfig}
-            onUpdateImageConfig={handleUpdateImageConfig}
-            onSelectFrameSize={handleSelectFrameSize}
-            onRemoveImage={handleRemoveImage}
-            capacityFeedback={capacityFeedback}
-            onHeightChange={setConsoleHeight}
-          />
+          <Console {...consoleProps} />
         </div>
       )}
 

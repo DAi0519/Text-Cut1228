@@ -1276,6 +1276,8 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
     const hasImage = !!editImage;
     const titleScale = config.editorialTitleScale || 1.0;
     const secondaryOpacity = 0.4;
+    const editorialAuthorName = config.authorName?.trim() || "Author";
+    const editorialTitleLineHeight = 1.05;
 
     // Brand name — plain text, no "©"
     const brandName = propBrandLabel || config.title || config.authorName || 'Project';
@@ -1471,12 +1473,12 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
                       spellCheck={false}
                       className={`w-full font-bold ${getFontClass(config.fontStyle)}`}
                       rows={1}
-                      style={{ ...titleEditBaseStyle, color: config.textColor, fontSize: coverTitleSize, lineHeight: 0.95, overflow: 'hidden', resize: 'none' }}
+                      style={{ ...titleEditBaseStyle, color: config.textColor, fontSize: coverTitleSize, lineHeight: editorialTitleLineHeight, overflow: 'hidden', resize: 'none' }}
                     />
                   ) : (
                     <h1
                       className={`font-bold break-words whitespace-pre-wrap ${getFontClass(config.fontStyle)}`}
-                      style={{ fontSize: coverTitleSize, lineHeight: 0.95 }}
+                      style={{ fontSize: coverTitleSize, lineHeight: editorialTitleLineHeight }}
                     >
                       {renderEditorialTitle(editTitle || 'UNTITLED')}
                     </h1>
@@ -1542,7 +1544,7 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
                     {config.authorAvatar ? (
                       <img src={config.authorAvatar} alt="Avatar" className="w-full h-full object-cover" />
                     ) : (
-                      (config.authorName || config.title || 'P').charAt(0).toUpperCase()
+                      editorialAuthorName.charAt(0).toUpperCase()
                     )}
                   </div>
                   {/* Text column — in flow, defines group height */}
@@ -1567,7 +1569,7 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
                       />
                     ) : (
                       <span style={{ fontSize: px(EDITORIAL_CAPTION), color: config.textColor, fontWeight: 600 }}>
-                        {config.authorName || config.title || 'Author'}
+                        {editorialAuthorName}
                       </span>
                     )}
                     <span style={{ fontSize: px(EDITORIAL_CAPTION), color: config.textColor, opacity: secondaryOpacity }}>
@@ -1596,13 +1598,13 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
                       onChange={(e) => setEditTitle(e.target.value)}
                       placeholder="(No Title)"
                       spellCheck={false}
-                      className={`w-full font-bold leading-[0.95] placeholder:opacity-20 ${getFontClass(config.fontStyle)}`}
-                      style={{ ...titleEditBaseStyle, color: config.textColor, fontSize: standardTitleSize, lineHeight: 0.95 }}
+                      className={`w-full font-bold placeholder:opacity-20 ${getFontClass(config.fontStyle)}`}
+                      style={{ ...titleEditBaseStyle, color: config.textColor, fontSize: standardTitleSize, lineHeight: editorialTitleLineHeight }}
                     />
                   ) : (
                     <h2
                       className={`font-bold whitespace-pre-wrap ${getFontClass(config.fontStyle)}`}
-                      style={{ fontSize: standardTitleSize, lineHeight: 0.95 }}
+                      style={{ fontSize: standardTitleSize, lineHeight: editorialTitleLineHeight }}
                     >
                       {renderEditorialTitle(editTitle)}
                     </h2>
