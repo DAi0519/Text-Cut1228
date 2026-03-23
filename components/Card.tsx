@@ -1348,6 +1348,17 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
           </div>
         )}
 
+        {/* Layer 1.5: Subtle Noise/Grain Texture (always active on solid backgrounds) */}
+        {!hasImage && (
+          <div 
+            className={`absolute inset-0 z-0 pointer-events-none ${isDark ? 'opacity-[0.06]' : 'opacity-[0.04]'}`} 
+            style={{ 
+              backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
+              mixBlendMode: isDark ? 'screen' : 'multiply'
+            }} 
+          />
+        )}
+
         {/* Layer 2: Snap guide lines — only visible during drag near center */}
         {(snapGuides.x || snapGuides.y) && (
           <div className="absolute inset-0 z-[2] pointer-events-none">
@@ -1648,8 +1659,12 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
     }
 
     if (config.composition === 'editorial') {
+      // Lighten the deep black neon background to a softer matte gray for a more premium editorial feel
+      const matteBgColor = (isDark && config.backgroundColor === '#111111') ? '#18181a' : config.backgroundColor;
+
       return {
         ...baseStyle,
+        backgroundColor: matteBgColor,
         borderRadius: '20px',
         boxShadow: isDark
           ? 'inset 0 0 0 1px rgba(255,255,255,0.08), 0 32px 64px -16px rgba(0,0,0,0.7)'
