@@ -2,6 +2,9 @@ import React, { useState, useEffect, useRef, useLayoutEffect, forwardRef, useImp
 import ReactMarkdown from 'react-markdown';
 import { CardConfig, AspectRatio, CardSegment, FontStyle, Composition, ImageConfig } from '../types';
 import {
+  carvePrefixForRebalance,
+  hasAtomicMarkdownSyntax,
+  isAtomicMarkdownBlock,
   splitIntoSentences,
   splitIntoClauses,
   splitAtNearestPunctuation,
@@ -489,12 +492,19 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
     // When not editing, read directly from props to avoid stale editContent
     const sourceContent = (isEditing ? editContent : content).trim();
     if (!sourceContent) return null;
+    if (isAtomicMarkdownBlock(sourceContent)) return null;
 
     const plainFitIndex = getRenderedFitPlainIndex();
     if (!plainFitIndex) return null;
 
     const sourceFitIndex = visiblePlainIndexToTextIndex(sourceContent, plainFitIndex);
-    const splitIndex = findBestSplitIndex(sourceContent, sourceFitIndex);
+    const splitIndex = hasAtomicMarkdownSyntax(sourceContent)
+      ? carvePrefixForRebalance(
+          sourceContent,
+          sourceFitIndex / Math.max(sourceContent.length, 1),
+          { minRatio: 0.18, maxRatio: 0.82 },
+        ).prefix.length
+      : findBestSplitIndex(sourceContent, sourceFitIndex);
     const keptContent = sourceContent.slice(0, splitIndex).trim();
     const movedContent = sourceContent.slice(splitIndex).trim();
 
@@ -509,7 +519,9 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
         imageConfig: editImageConfig,
       },
       movedSegment: {
-        title: (editTitle || sectionTitle || "").trim(),
+        title: hasAtomicMarkdownSyntax(sourceContent)
+          ? ""
+          : (editTitle || sectionTitle || "").trim(),
         content: movedContent,
         layout: currentLayout === 'cover' ? 'standard' : currentLayout,
       },
@@ -706,6 +718,23 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
   const px = (value: number) => `${Math.round(value * chromeScale)}px`;
   const rem = (value: number) => `${(value * chromeScale).toFixed(3)}rem`;
   const bodyFontSize = `${(config.fontSize * BODY_TYPOGRAPHY.fontScale).toFixed(3)}rem`;
+  const codeBlockTheme = isDark
+    ? {
+        shellBackground: "#3f3f46",
+        shellBorder: "rgba(255,255,255,0.12)",
+        headerBackground: "#52525b",
+        headerBorder: "rgba(255,255,255,0.1)",
+        headerText: "rgba(255,255,255,0.72)",
+        codeText: "#fafafa",
+      }
+    : {
+        shellBackground: "#ffffff",
+        shellBorder: "rgba(15,23,42,0.12)",
+        headerBackground: "#f4f4f5",
+        headerBorder: "rgba(15,23,42,0.08)",
+        headerText: "rgba(63,63,70,0.7)",
+        codeText: "#27272a",
+      };
   const titleEditBaseStyle: React.CSSProperties = {
     color: config.textColor,
     background: 'transparent',
@@ -863,7 +892,13 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
       <div ref={contentMeasureRef} className="w-full">
         <ReactMarkdown 
           components={{
-            p: ({node, ...props}) => <p className="last:mb-0 hyphens-auto font-normal" style={{ textAlign: 'justify', textAlignLast: 'left', lineHeight: 'inherit', marginBottom: `${BODY_TYPOGRAPHY.paragraphGapEm}em` }} {...props} />,
+            p: ({node, ...props}) => (
+              <p
+                className="mb-[1.5em] last:mb-0 hyphens-auto font-normal"
+                style={{ textAlign: 'justify', textAlignLast: 'left', lineHeight: 'inherit' }}
+                {...props}
+              />
+            ),
             strong: ({node, ...props}) => <strong className="font-semibold" style={{ color: config.accentColor }} {...props} />,
             ul: ({node, children, ...props}) => {
               const validChildren = React.Children.toArray(children).filter(child => React.isValidElement(child));
@@ -914,9 +949,105 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
             },
             h1: ({node, ...props}) => <strong className="block text-sm font-bold uppercase tracking-widest mb-2 mt-3 opacity-80" {...props} />,
             h2: ({node, ...props}) => <strong className="block text-sm font-bold uppercase tracking-wide mb-1 mt-3 opacity-80" {...props} />,
-            blockquote: ({node, ...props}) => (
-              <blockquote className="border-l-[3px] pl-5 my-4 italic opacity-75" style={{ borderColor: config.accentColor }} {...props} />
-            ),
+            blockquote: ({node, children, ...props}: any) => {
+              return (
+                <blockquote
+                  className="mt-3 mb-[1em] rounded-r-2xl border-l-[3px] px-5 py-3 italic [&>p]:mb-0 [&>p+p]:mt-3"
+                  style={{
+                    borderColor: config.accentColor,
+                    backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.035)",
+                    color: config.textColor,
+                    opacity: 0.82,
+                  }}
+                  {...props}
+                >
+                  {children}
+                </blockquote>
+              );
+            },
+            pre: ({node, children, ...props}) => {
+              const child = React.Children.toArray(children)[0];
+              const childProps =
+                React.isValidElement(child) && typeof child.props === "object"
+                  ? (child.props as { className?: string })
+                  : undefined;
+              const languageMatch = childProps?.className?.match(/language-([\w-]+)/);
+              const languageLabel = (languageMatch?.[1] || "text").toUpperCase();
+
+              return (
+                <div
+                  className="my-3 overflow-hidden rounded-[20px] border"
+                  style={{
+                    borderColor: codeBlockTheme.shellBorder,
+                    background: codeBlockTheme.shellBackground,
+                  }}
+                >
+                  <div
+                    className="flex items-center justify-between border-b px-3.5 py-2"
+                    style={{
+                      borderColor: codeBlockTheme.headerBorder,
+                      background: codeBlockTheme.headerBackground,
+                    }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="h-2.5 w-2.5 rounded-full bg-[#fb7185]" />
+                      <span className="h-2.5 w-2.5 rounded-full bg-[#f59e0b]" />
+                      <span className="h-2.5 w-2.5 rounded-full bg-[#34d399]" />
+                    </div>
+                    <span
+                      className="font-mono text-[10px] font-semibold uppercase tracking-[0.2em]"
+                      style={{ color: codeBlockTheme.headerText }}
+                    >
+                      {languageLabel}
+                    </span>
+                  </div>
+                  <pre
+                    className="overflow-x-auto px-3.5 py-3 font-mono text-[0.76em] leading-[1.6]"
+                    style={{
+                      color: codeBlockTheme.codeText,
+                      whiteSpace: "pre-wrap",
+                      wordBreak: "break-word",
+                      overflowWrap: "anywhere",
+                    }}
+                    {...props}
+                  >
+                    {children}
+                  </pre>
+                </div>
+              );
+            },
+            code: ({node, className, children, ...props}: any) => {
+              const isBlockCode =
+                typeof className === "string" && className.length > 0;
+              if (isBlockCode) {
+                return (
+                  <code
+                    className={className}
+                    style={{
+                      color: codeBlockTheme.codeText,
+                      background: "transparent",
+                      whiteSpace: "inherit",
+                    }}
+                    {...props}
+                  >
+                    {children}
+                  </code>
+                );
+              }
+
+              return (
+                <code
+                  className="rounded-md px-[0.35em] py-[0.12em] font-mono text-[0.9em]"
+                  style={{
+                    backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
+                    color: config.accentColor,
+                  }}
+                  {...props}
+                >
+                  {children}
+                </code>
+              );
+            },
             a: ({node, ...props}) => <span className="underline decoration-1 underline-offset-4 decoration-dotted opacity-80" {...props} />
           }}
         >

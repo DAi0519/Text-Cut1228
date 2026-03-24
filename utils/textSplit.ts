@@ -40,12 +40,148 @@ export const splitIntoSentences = (text: string): string[] => {
 };
 
 const CLAUSE_RE = /[^，,、：:]+[，,、：:]?\s*/g;
+const MARKDOWN_LIST_ITEM_RE =
+  /^(\s*)(?:[-*+]|\d+[.)])\s+(?:\[[ xX]\]\s+)?/;
+const FENCE_RE = /^(\s*)(`{3,}|~{3,})/;
+const BLOCKQUOTE_RE = /^\s*>/;
 
 export const splitIntoClauses = (text: string): string[] => {
   const matches = text.match(CLAUSE_RE);
   if (!matches) return [];
   return matches.map((s) => s.trim()).filter(Boolean);
 };
+
+const splitMarkdownListItems = (text: string): string[] => {
+  const lines = text.replace(/\r\n?/g, "\n").split("\n");
+  const items: string[] = [];
+  let current: string[] = [];
+  let rootIndent: number | null = null;
+
+  const flushCurrent = () => {
+    const nextItem = current.join("\n").trim();
+    if (nextItem) items.push(nextItem);
+    current = [];
+  };
+
+  for (const line of lines) {
+    const match = line.match(MARKDOWN_LIST_ITEM_RE);
+
+    if (!match) {
+      if (current.length === 0) {
+        if (line.trim() === "") continue;
+        return [];
+      }
+
+      current.push(line);
+      continue;
+    }
+
+    const indent = match[1]?.length ?? 0;
+    if (rootIndent === null) {
+      rootIndent = indent;
+    }
+
+    if (indent <= rootIndent) {
+      flushCurrent();
+      current = [line];
+      rootIndent = indent;
+      continue;
+    }
+
+    // Nested list items stay attached to the current top-level item.
+    current.push(line);
+  }
+
+  flushCurrent();
+  return items.length >= 2 ? items : [];
+};
+
+export const splitIntoMarkdownBlocks = (text: string): string[] => {
+  const lines = text.replace(/\r\n?/g, "\n").split("\n");
+  const blocks: string[] = [];
+  let current: string[] = [];
+  let index = 0;
+
+  const flushCurrent = () => {
+    const block = current.join("\n").trim();
+    if (block) blocks.push(block);
+    current = [];
+  };
+
+  while (index < lines.length) {
+    const line = lines[index];
+
+    if (line.trim() === "") {
+      flushCurrent();
+      index += 1;
+      continue;
+    }
+
+    const fenceMatch = line.match(FENCE_RE);
+    if (fenceMatch) {
+      flushCurrent();
+      const fenceToken = fenceMatch[2];
+      const blockLines = [line];
+      index += 1;
+
+      while (index < lines.length) {
+        blockLines.push(lines[index]);
+        if (new RegExp(`^\\s*${fenceToken}`).test(lines[index])) {
+          index += 1;
+          break;
+        }
+        index += 1;
+      }
+
+      const fencedBlock = blockLines.join("\n").trim();
+      if (fencedBlock) blocks.push(fencedBlock);
+      continue;
+    }
+
+    if (BLOCKQUOTE_RE.test(line)) {
+      flushCurrent();
+      const blockLines = [line];
+      index += 1;
+
+      while (
+        index < lines.length &&
+        (lines[index].trim() === "" || BLOCKQUOTE_RE.test(lines[index]))
+      ) {
+        blockLines.push(lines[index]);
+        index += 1;
+      }
+
+      const quoteBlock = blockLines.join("\n").trim();
+      if (quoteBlock) blocks.push(quoteBlock);
+      continue;
+    }
+
+    current.push(line);
+    index += 1;
+  }
+
+  flushCurrent();
+  return blocks.filter(Boolean);
+};
+
+export const isAtomicMarkdownBlock = (text: string) => {
+  const trimmed = text.trim();
+  if (!trimmed) return false;
+
+  if (FENCE_RE.test(trimmed)) {
+    return true;
+  }
+
+  return trimmed
+    .split("\n")
+    .every((line) => line.trim() === "" || BLOCKQUOTE_RE.test(line));
+};
+
+export const hasAtomicMarkdownSyntax = (text: string) =>
+  text
+    .replace(/\r\n?/g, "\n")
+    .split("\n")
+    .some((line) => FENCE_RE.test(line) || BLOCKQUOTE_RE.test(line));
 
 // ── Ratio-based splitting ───────────────────────────────────
 
@@ -144,12 +280,16 @@ export const carvePrefixForRebalance = (
   const max = opts?.maxRatio ?? 0.58;
   const clamped = Math.min(max, Math.max(min, ratio));
 
-  const paragraphs = text
-    .split("\n\n")
-    .map((p) => p.trim())
-    .filter(Boolean);
-  const paraSplit = splitPrefixNearRatio(paragraphs, clamped, "\n\n");
-  if (paraSplit) return paraSplit;
+  const markdownBlocks = splitIntoMarkdownBlocks(text);
+  const blockSplit = splitPrefixNearRatio(markdownBlocks, clamped, "\n\n");
+  if (blockSplit) return blockSplit;
+
+  const listSplit = splitPrefixNearRatio(
+    splitMarkdownListItems(text),
+    clamped,
+    "\n",
+  );
+  if (listSplit) return listSplit;
 
   const sentSplit = splitPrefixNearRatio(
     splitIntoSentences(text),

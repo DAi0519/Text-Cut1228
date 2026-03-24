@@ -1,6 +1,11 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { SplitResponse, CardSegment, CardConfig, AspectRatio } from "../types";
-import { carvePrefixForRebalance } from "../utils/textSplit";
+import {
+  carvePrefixForRebalance,
+  hasAtomicMarkdownSyntax,
+  isAtomicMarkdownBlock,
+  splitIntoMarkdownBlocks,
+} from "../utils/textSplit";
 
 // Initialize Gemini
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -149,15 +154,230 @@ const applyThemeTagToCoverSegments = (
   );
 };
 
+const segmentHasAtomicMarkdown = (segment: CardSegment) =>
+  segment.layout !== "cover" &&
+  (isAtomicMarkdownBlock(segment.content) || hasAtomicMarkdownSyntax(segment.content));
+
+const buildSequentialBodySegments = (
+  sourceText: string,
+  capacity: ReturnType<typeof getCapacityGuide>,
+) => {
+  const normalizedText = sourceText.replace(/\r\n?/g, "\n").trim();
+  const paragraphs = splitIntoMarkdownBlocks(normalizedText);
+
+  if (paragraphs.length === 0) {
+    return [
+      {
+        title: "",
+        content: normalizedText,
+        layout: "standard" as const,
+      },
+    ];
+  }
+
+  const bodySegments: CardSegment[] = [];
+  let currentContent = "";
+
+  const flushCurrent = () => {
+    const trimmed = currentContent.trim();
+    if (!trimmed) return;
+    bodySegments.push({
+      title: "",
+      content: trimmed,
+      layout: "standard" as const,
+    });
+    currentContent = "";
+  };
+
+  const appendChunk = (chunk: string) => {
+    const trimmed = chunk.trim();
+    if (!trimmed) return;
+
+    if (!currentContent) {
+      currentContent = trimmed;
+      return;
+    }
+
+    const merged = `${currentContent}\n\n${trimmed}`.trim();
+    if (estimateSegmentOccupancy(merged, capacity) <= 1.02) {
+      currentContent = merged;
+      return;
+    }
+
+    flushCurrent();
+    currentContent = trimmed;
+  };
+
+  for (const paragraph of paragraphs) {
+    let remainder = paragraph;
+
+    while (remainder) {
+      const occupancy = estimateSegmentOccupancy(remainder, capacity);
+      const isAtomicBlock = isAtomicMarkdownBlock(remainder);
+      if (occupancy <= 1.02) {
+        appendChunk(remainder);
+        remainder = "";
+        continue;
+      }
+
+      if (isAtomicBlock) {
+        appendChunk(remainder);
+        remainder = "";
+        continue;
+      }
+
+      const targetRatio = Math.min(
+        0.62,
+        Math.max(0.28, 0.9 / Math.max(occupancy, 0.01)),
+      );
+      const split = carvePrefixForRebalance(remainder, targetRatio, {
+        minRatio: 0.28,
+        maxRatio: 0.62,
+      });
+
+      if (!split?.prefix || !split?.suffix) {
+        appendChunk(remainder);
+        remainder = "";
+        continue;
+      }
+
+      appendChunk(split.prefix);
+      remainder = split.suffix.trim();
+    }
+  }
+
+  flushCurrent();
+
+  return bodySegments.length > 0
+    ? bodySegments
+    : [
+        {
+          title: "",
+          content: normalizedText,
+          layout: "standard" as const,
+        },
+      ];
+};
+
+const buildStructuredMarkdownSegments = (
+  sourceText: string,
+  capacity: ReturnType<typeof getCapacityGuide>,
+  options?: {
+    coverTitle?: string;
+    endTitle?: string;
+    preferredTag?: string;
+  },
+) => {
+  const normalizedText = sourceText.replace(/\r\n?/g, "\n").trim();
+  const blocks = splitIntoMarkdownBlocks(normalizedText);
+  const bodySegments: CardSegment[] = [];
+  let pendingTitle = "";
+  let currentContent = "";
+
+  const flushCurrent = () => {
+    const trimmed = currentContent.trim();
+    if (!trimmed) return;
+    bodySegments.push({
+      title: pendingTitle,
+      content: trimmed,
+      layout: "standard" as const,
+    });
+    pendingTitle = "";
+    currentContent = "";
+  };
+
+  const appendBlock = (block: string) => {
+    const trimmed = block.trim();
+    if (!trimmed) return;
+
+    if (!currentContent) {
+      currentContent = trimmed;
+      return;
+    }
+
+    const merged = `${currentContent}\n\n${trimmed}`.trim();
+    if (estimateSegmentOccupancy(merged, capacity) <= 1.02) {
+      currentContent = merged;
+      return;
+    }
+
+    flushCurrent();
+    currentContent = trimmed;
+  };
+
+  for (const block of blocks) {
+    const headingMatch = block.match(/^#{1,6}\s+(.+)$/);
+    if (headingMatch) {
+      flushCurrent();
+      pendingTitle = headingMatch[1].trim();
+      continue;
+    }
+
+    let remainder = block;
+    while (remainder) {
+      const occupancy = estimateSegmentOccupancy(remainder, capacity);
+      const isAtomicBlock = isAtomicMarkdownBlock(remainder);
+
+      if (occupancy <= 1.02 || isAtomicBlock) {
+        appendBlock(remainder);
+        remainder = "";
+        continue;
+      }
+
+      const targetRatio = Math.min(
+        0.62,
+        Math.max(0.28, 0.9 / Math.max(occupancy, 0.01)),
+      );
+      const split = carvePrefixForRebalance(remainder, targetRatio, {
+        minRatio: 0.28,
+        maxRatio: 0.62,
+      });
+
+      if (!split?.prefix || !split?.suffix) {
+        appendBlock(remainder);
+        remainder = "";
+        continue;
+      }
+
+      appendBlock(split.prefix);
+      remainder = split.suffix.trim();
+    }
+  }
+
+  flushCurrent();
+
+  const markdownSegments: CardSegment[] = [
+    {
+      title: options?.coverTitle?.trim() || "Project Text",
+      content: "",
+      layout: "cover" as const,
+    },
+    ...bodySegments,
+    {
+      title: options?.endTitle?.trim() || "FIN",
+      content: "",
+      layout: "cover" as const,
+    },
+  ];
+
+  return applyThemeTagToCoverSegments(
+    sanitizeGeneratedSegments(markdownSegments, sourceText, capacity),
+    sourceText,
+    options?.preferredTag,
+  );
+};
+
 const collapseToSequentialFlow = (
   segments: CardSegment[],
   sourceText: string,
+  capacity: ReturnType<typeof getCapacityGuide>,
   preferredTag?: string,
 ) => {
   const coverSegment = segments.find((segment) => segment.layout === "cover");
   const endSegment = [...segments]
     .reverse()
     .find((segment) => segment.layout === "cover" && segment !== coverSegment);
+  const bodySegments = buildSequentialBodySegments(sourceText, capacity);
 
   const sequentialSegments: CardSegment[] = [
     {
@@ -165,11 +385,7 @@ const collapseToSequentialFlow = (
       content: "",
       layout: "cover" as const,
     },
-    {
-      title: "",
-      content: sourceText.trim(),
-      layout: "standard" as const,
-    },
+    ...bodySegments,
     {
       title: endSegment?.title.trim() || "FIN",
       content: "",
@@ -177,7 +393,11 @@ const collapseToSequentialFlow = (
     },
   ];
 
-  return applyThemeTagToCoverSegments(sequentialSegments, sourceText, preferredTag);
+  return applyThemeTagToCoverSegments(
+    sanitizeGeneratedSegments(sequentialSegments, sourceText, capacity),
+    sourceText,
+    preferredTag,
+  );
 };
 
 const sanitizeGeneratedSegments = (
@@ -216,6 +436,9 @@ const sanitizeGeneratedSegments = (
     current: CardSegment,
   ) => {
     if (previous.layout === "cover" || current.layout === "cover") return false;
+    if (segmentHasAtomicMarkdown(previous) || segmentHasAtomicMarkdown(current)) {
+      return false;
+    }
 
     const previousTitle = previous.title.trim();
     const currentTitle = current.title.trim();
@@ -242,6 +465,9 @@ const sanitizeGeneratedSegments = (
 
   const canRebalanceBetween = (previous: CardSegment, current: CardSegment) => {
     if (previous.layout === "cover" || current.layout === "cover") return false;
+    if (segmentHasAtomicMarkdown(previous) || segmentHasAtomicMarkdown(current)) {
+      return false;
+    }
 
     const previousTitle = previous.title.trim();
     const currentTitle = current.title.trim();
@@ -427,13 +653,33 @@ export const splitTextIntoCards = async (
     }
 
     const parsedData = JSON.parse(jsonStr) as SplitResponse;
+    const hasExplicitHeadings = extractExplicitHeadings(text).length > 0;
     const sanitizedSegments = applyThemeTagToCoverSegments(
       sanitizeGeneratedSegments(parsedData.segments, text, capacity),
       text,
       parsedData.themeTag,
     );
-    if (extractExplicitHeadings(text).length === 0) {
-      return collapseToSequentialFlow(sanitizedSegments, text, parsedData.themeTag);
+    if (hasAtomicMarkdownSyntax(text)) {
+      const coverTitle =
+        sanitizedSegments.find((segment) => segment.layout === "cover")?.title || "";
+      const endTitle =
+        [...sanitizedSegments]
+          .reverse()
+          .find((segment) => segment.layout === "cover")?.title || "FIN";
+
+      return buildStructuredMarkdownSegments(text, capacity, {
+        coverTitle,
+        endTitle,
+        preferredTag: parsedData.themeTag,
+      });
+    }
+    if (!hasExplicitHeadings) {
+      return collapseToSequentialFlow(
+        sanitizedSegments,
+        text,
+        capacity,
+        parsedData.themeTag,
+      );
     }
     return sanitizedSegments;
 
@@ -521,8 +767,11 @@ export const splitTextIntoCards = async (
       sanitizeGeneratedSegments(segments, text, capacity),
       text,
     );
+    if (hasAtomicMarkdownSyntax(text)) {
+      return buildStructuredMarkdownSegments(text, capacity);
+    }
     if (extractExplicitHeadings(text).length === 0) {
-      return collapseToSequentialFlow(sanitizedSegments, text);
+      return collapseToSequentialFlow(sanitizedSegments, text, capacity);
     }
     return sanitizedSegments;
   }

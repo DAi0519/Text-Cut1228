@@ -13,6 +13,7 @@ import {
 import { splitTextIntoCards } from "./services/geminiService";
 import { toPng } from "html-to-image";
 import { ArrowRight } from "lucide-react";
+import { hasAtomicMarkdownSyntax, isAtomicMarkdownBlock } from "./utils/textSplit";
 
 const CAPACITY_REGEN_DEBOUNCE_MS = 700;
 const VALID_COMPOSITIONS = new Set(["classic", "technical", "editorial"]);
@@ -199,6 +200,12 @@ const canNormalizeAdjacentCards = (
 ) => {
   if (!current || !next) return false;
   if (current.layout === "cover" || next.layout === "cover") return false;
+  if (
+    hasAtomicMarkdownSyntax(current.content) ||
+    hasAtomicMarkdownSyntax(next.content)
+  ) {
+    return false;
+  }
 
   const currentTitle = current.title.trim();
   const nextTitle = next.title.trim();
@@ -1156,10 +1163,14 @@ const App: React.FC = () => {
 
         const movedContent = splitResult.movedSegment.content.trim();
         const nextCard = next[index + 1];
+        const shouldKeepAtomicSplitIsolated =
+          isAtomicMarkdownBlock(splitResult.keptSegment.content) ||
+          isAtomicMarkdownBlock(movedContent);
 
         // Small remnant (< 80 chars): prepend to the next body card instead of
         // creating a standalone tiny card that would cause merge-split oscillation.
         if (
+          !shouldKeepAtomicSplitIsolated &&
           movedContent.length < 80 &&
           nextCard &&
           nextCard.layout !== "cover"
