@@ -1757,9 +1757,11 @@ const App: React.FC = () => {
                      disabled={!inputText.trim() || isProcessing}
                      className={`
                        w-full h-12 shrink-0 flex items-center justify-end px-8 gap-3 transition-colors duration-300 border-t outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#ea580c]
-                       ${!inputText.trim() || isProcessing
-                         ? "border-black/[0.06] bg-black/[0.02] text-black/25 cursor-not-allowed"
-                         : "border-black/[0.08] bg-white text-black/80 hover:bg-[#ea580c] hover:border-[#ea580c] hover:text-white active:bg-[#c24100]"
+                       ${isProcessing
+                         ? "border-[#ea580c]/20 bg-[#ea580c]/[0.04] text-[#ea580c] cursor-wait"
+                         : !inputText.trim()
+                           ? "border-black/[0.06] bg-black/[0.02] text-black/25 cursor-not-allowed"
+                           : "border-black/[0.08] bg-white text-black/80 hover:bg-[#ea580c] hover:border-[#ea580c] hover:text-white active:bg-[#c24100]"
                        }
                      `}
                   >
