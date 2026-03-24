@@ -59,11 +59,12 @@ export interface CardSegment {
   originalImage?: string; // Original uploaded image retained for re-cropping.
   imageConfig?: ImageConfig;
   editorialBrandLabel?: string; // Custom brand name override for editorial Cover
-  editorialBadgeText?: string;  // Custom badge text override for editorial Cover (e.g. "Part 1")
+  editorialBadgeText?: string;  // Custom theme tag override for editorial Cover (e.g. "Design")
 }
 
 export interface SplitResponse {
   segments: CardSegment[];
+  themeTag?: string;
 }
 
 export interface Preset {

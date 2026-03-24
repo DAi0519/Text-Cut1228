@@ -96,16 +96,70 @@ const stripContinuationMarkers = (title: string) =>
     .replace(/\s+/g, " ")
     .trim();
 
+const normalizeThemeTag = (value?: string | null) =>
+  (value || "")
+    .replace(/^[#"'“”‘’\s]+|[#"'“”‘’\s]+$/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 24);
+
+const deriveFallbackThemeTag = (sourceText: string, coverTitle?: string) => {
+  const headings = extractExplicitHeadings(sourceText);
+  const headingCandidate = normalizeThemeTag(headings[0]);
+  if (headingCandidate) return headingCandidate;
+
+  const lines = sourceText
+    .replace(/\r\n?/g, "\n")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const shortLineCandidate = lines.find(
+    (line) => line.length <= 24 && !/[。！？；：，,.!?;:]/.test(line),
+  );
+  if (shortLineCandidate) {
+    return normalizeThemeTag(shortLineCandidate.replace(/^[#*\-\d.\s]+/, ""));
+  }
+
+  const titleCandidate = normalizeThemeTag(coverTitle);
+  if (titleCandidate && !/^(project text|untitled|fin|the end)$/i.test(titleCandidate)) {
+    return titleCandidate;
+  }
+
+  return "Essay";
+};
+
+const applyThemeTagToCoverSegments = (
+  segments: CardSegment[],
+  sourceText: string,
+  preferredTag?: string,
+) => {
+  const fallbackCoverTitle =
+    segments.find((segment) => segment.layout === "cover")?.title?.trim() || "";
+  const themeTag =
+    normalizeThemeTag(preferredTag) ||
+    deriveFallbackThemeTag(sourceText, fallbackCoverTitle);
+
+  return segments.map((segment) =>
+    segment.layout === "cover"
+      ? {
+          ...segment,
+          editorialBadgeText: themeTag,
+        }
+      : segment,
+  );
+};
+
 const collapseToSequentialFlow = (
   segments: CardSegment[],
   sourceText: string,
+  preferredTag?: string,
 ) => {
   const coverSegment = segments.find((segment) => segment.layout === "cover");
   const endSegment = [...segments]
     .reverse()
     .find((segment) => segment.layout === "cover" && segment !== coverSegment);
 
-  return [
+  const sequentialSegments: CardSegment[] = [
     {
       title: coverSegment?.title.trim() || "Project Text",
       content: "",
@@ -122,6 +176,8 @@ const collapseToSequentialFlow = (
       layout: "cover" as const,
     },
   ];
+
+  return applyThemeTagToCoverSegments(sequentialSegments, sourceText, preferredTag);
 };
 
 const sanitizeGeneratedSegments = (
@@ -327,6 +383,8 @@ export const splitTextIntoCards = async (
          - **Card 1 (Cover)**: Title = Project Title, Content = "", Layout = "cover".
          - **Card 2..N (Body)**: Title = Segment Title, Content = Segment Text, Layout = "standard".
          - **Card N+1 (End)**: Title = "FIN", Content = "", Layout = "cover".
+         - Also return a top-level "themeTag": a short article topic label shared by the first and last cover.
+         - "themeTag" should be 1-4 words, plain text, no numbering, no quotes, no sentence punctuation.
 
       Input Text:
       ${text}
@@ -340,6 +398,11 @@ export const splitTextIntoCards = async (
         responseSchema: {
           type: Type.OBJECT,
           properties: {
+            themeTag: {
+              type: Type.STRING,
+              description:
+                "Short article topic label for the cover badge, such as Design, AI, Typography, or Product Strategy.",
+            },
             segments: {
               type: Type.ARRAY,
               items: { 
@@ -364,13 +427,13 @@ export const splitTextIntoCards = async (
     }
 
     const parsedData = JSON.parse(jsonStr) as SplitResponse;
-    const sanitizedSegments = sanitizeGeneratedSegments(
-      parsedData.segments,
+    const sanitizedSegments = applyThemeTagToCoverSegments(
+      sanitizeGeneratedSegments(parsedData.segments, text, capacity),
       text,
-      capacity,
+      parsedData.themeTag,
     );
     if (extractExplicitHeadings(text).length === 0) {
-      return collapseToSequentialFlow(sanitizedSegments, text);
+      return collapseToSequentialFlow(sanitizedSegments, text, parsedData.themeTag);
     }
     return sanitizedSegments;
 
@@ -454,7 +517,10 @@ export const splitTextIntoCards = async (
       layout: "cover"
     });
 
-    const sanitizedSegments = sanitizeGeneratedSegments(segments, text, capacity);
+    const sanitizedSegments = applyThemeTagToCoverSegments(
+      sanitizeGeneratedSegments(segments, text, capacity),
+      text,
+    );
     if (extractExplicitHeadings(text).length === 0) {
       return collapseToSequentialFlow(sanitizedSegments, text);
     }

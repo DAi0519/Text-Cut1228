@@ -1282,8 +1282,8 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
     // Brand name — plain text, no "©"
     const brandName = propBrandLabel || config.title || config.authorName || 'Project';
 
-    // Badge text — "Part X" pill
-    const badgeText = propBadgeText || `Part ${index + 1}`;
+    // Theme tag — editorial cover label for the article topic, never a counter.
+    const badgeText = propBadgeText?.trim() || '';
 
     // Editorial-specific highlighted title: **highlighted** = accentColor, rest = textColor with low opacity
     const renderEditorialTitle = (title: string) => {
@@ -1424,7 +1424,7 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
           {isCover ? (
             /* ═══ COVER: full magazine cover layout ═══ */
             <>
-              {/* Top bar: brand name (left) + index (right) */}
+              {/* Top bar: brand name (left) + index (right, hidden on tail page) */}
               <div
                 className="shrink-0 flex items-start justify-between"
                 style={{ paddingInline: px(28), paddingTop: px(28) }}
@@ -1446,12 +1446,16 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
                     {brandName}
                   </span>
                 )}
-                <span
-                  className="font-sans"
-                  style={{ fontSize: px(EDITORIAL_CAPTION), color: config.textColor }}
-                >
-                  {displayIndex}
-                </span>
+                {!isLast ? (
+                  <span
+                    className="font-sans"
+                    style={{ fontSize: px(EDITORIAL_CAPTION), color: config.textColor }}
+                  >
+                    {displayIndex}
+                  </span>
+                ) : (
+                  <span aria-hidden="true" />
+                )}
               </div>
 
               {/* Center: HUGE title */}
@@ -1483,36 +1487,38 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
                       {renderEditorialTitle(editTitle || 'UNTITLED')}
                     </h1>
                   )}
-                  {/* "Part X" pill badge — always visible, editable in edit mode */}
-                  <div
-                    className="inline-grid font-sans"
-                    style={{
-                      fontSize: coverBadgeFontSize,
-                      color: mutedColor,
-                      border: `1px solid ${isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.25)'}`,
-                      borderRadius: '999px',
-                      padding: `${coverBadgePaddingY} ${coverBadgePaddingX}`,
-                      marginTop: coverBadgeMarginTop,
-                    }}
-                    onClick={(e) => isEditing && e.stopPropagation()}
-                  >
-                    {/* Mirror span controls width; input overlays it */}
-                    <span className="invisible whitespace-pre [grid-area:1/1/2/2]">
-                      {(isEditing ? (editBadgeText || badgeText) : badgeText)}
-                    </span>
-                    {isEditing ? (
-                      <input
-                        value={editBadgeText}
-                        onChange={(e) => setEditBadgeText(e.target.value)}
-                        placeholder={badgeText}
-                        spellCheck={false}
-                        className="bg-transparent border-none outline-none [grid-area:1/1/2/2] w-full text-center placeholder:opacity-40"
-                        style={{ color: mutedColor, fontSize: 'inherit' }}
-                      />
-                    ) : (
-                      <span className="[grid-area:1/1/2/2]">{badgeText}</span>
-                    )}
-                  </div>
+                  {/* Theme-tag pill — only shows once a tag exists, editable in edit mode */}
+                  {(isEditing || badgeText) && (
+                    <div
+                      className="inline-grid font-sans"
+                      style={{
+                        fontSize: coverBadgeFontSize,
+                        color: mutedColor,
+                        border: `1px solid ${isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.25)'}`,
+                        borderRadius: '999px',
+                        padding: `${coverBadgePaddingY} ${coverBadgePaddingX}`,
+                        marginTop: coverBadgeMarginTop,
+                      }}
+                      onClick={(e) => isEditing && e.stopPropagation()}
+                    >
+                      {/* Mirror span controls width; input overlays it */}
+                      <span className="invisible whitespace-pre [grid-area:1/1/2/2]">
+                        {(isEditing ? (editBadgeText || badgeText || 'Theme tag') : badgeText)}
+                      </span>
+                      {isEditing ? (
+                        <input
+                          value={editBadgeText}
+                          onChange={(e) => setEditBadgeText(e.target.value)}
+                          placeholder="Theme tag"
+                          spellCheck={false}
+                          className="bg-transparent border-none outline-none [grid-area:1/1/2/2] w-full text-center placeholder:opacity-40"
+                          style={{ color: mutedColor, fontSize: 'inherit' }}
+                        />
+                      ) : (
+                        <span className="[grid-area:1/1/2/2]">{badgeText}</span>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 

@@ -1098,12 +1098,43 @@ const App: React.FC = () => {
     setCards((prev) => {
       const newCards = [...prev];
       const existing = newCards[index];
-      newCards[index] = {
+      const nextSegment = {
         ...existing,
         ...updatedSegment,
         originalImage:
           updatedSegment.originalImage ?? existing?.originalImage,
       };
+      newCards[index] = nextSegment;
+
+      // Keep the editorial theme tag in sync between the first and last cover.
+      if (
+        nextSegment.layout === "cover" &&
+        updatedSegment.editorialBadgeText !== undefined
+      ) {
+        const coverIndices = newCards
+          .map((segment, segmentIndex) =>
+            segment.layout === "cover" ? segmentIndex : -1,
+          )
+          .filter((segmentIndex) => segmentIndex >= 0);
+
+        if (coverIndices.length >= 2) {
+          const firstCoverIndex = coverIndices[0];
+          const lastCoverIndex = coverIndices[coverIndices.length - 1];
+          const syncedTag = nextSegment.editorialBadgeText;
+
+          if (index === firstCoverIndex || index === lastCoverIndex) {
+            newCards[firstCoverIndex] = {
+              ...newCards[firstCoverIndex],
+              editorialBadgeText: syncedTag,
+            };
+            newCards[lastCoverIndex] = {
+              ...newCards[lastCoverIndex],
+              editorialBadgeText: syncedTag,
+            };
+          }
+        }
+      }
+
       return newCards;
     });
   };
