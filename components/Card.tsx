@@ -1424,7 +1424,7 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
           {isCover ? (
             /* ═══ COVER: full magazine cover layout ═══ */
             <>
-              {/* Top bar: brand name (left) + index (right, hidden on tail page) */}
+              {/* Top bar: brand name (left) + index (right) */}
               <div
                 className="shrink-0 flex items-start justify-between"
                 style={{ paddingInline: px(28), paddingTop: px(28) }}
@@ -1435,27 +1435,23 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
                     onChange={(e) => setEditBrandLabel(e.target.value)}
                     placeholder="Brand"
                     spellCheck={false}
-                    className="font-sans font-medium bg-transparent border-none outline-none p-0"
+                    className="font-sans font-medium uppercase tracking-wider bg-transparent border-none outline-none p-0"
                     style={{ fontSize: px(EDITORIAL_CAPTION), color: config.accentColor, width: '60%' }}
                   />
                 ) : (
                   <span
-                    className="font-sans font-medium"
+                    className="font-sans font-medium uppercase tracking-wider"
                     style={{ fontSize: px(EDITORIAL_CAPTION), color: config.accentColor }}
                   >
                     {brandName}
                   </span>
                 )}
-                {!isLast ? (
-                  <span
-                    className="font-sans"
-                    style={{ fontSize: px(EDITORIAL_CAPTION), color: config.textColor }}
-                  >
-                    {displayIndex}
-                  </span>
-                ) : (
-                  <span aria-hidden="true" />
-                )}
+                <span
+                  className="font-sans"
+                  style={{ fontSize: px(EDITORIAL_CAPTION), color: config.textColor }}
+                >
+                  {displayIndex}
+                </span>
               </div>
 
               {/* Center: HUGE title */}
@@ -1584,8 +1580,8 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
                   </div>
                 </div>
                 {/* Right side: accent-colored bookmark icon + text */}
-                <div className="flex items-center gap-1.5" style={{ color: config.accentColor }}>
-                  <svg width={px(EDITORIAL_CAPTION)} height={px(EDITORIAL_CAPTION)} viewBox="0 0 16 16" fill="currentColor">
+                <div className="flex items-center gap-1.5 font-medium tracking-wide" style={{ color: config.accentColor }}>
+                  <svg width={px(EDITORIAL_CAPTION + 1)} height={px(EDITORIAL_CAPTION + 1)} viewBox="0 0 16 16" fill="currentColor">
                     <path d="M3 2.5A1.5 1.5 0 014.5 1h7A1.5 1.5 0 0113 2.5v12a.5.5 0 01-.748.434L8 12.153l-4.252 2.78A.5.5 0 013 14.5v-12z" />
                   </svg>
                   <span style={{ fontSize: px(EDITORIAL_CAPTION) }}>Save for later</span>
@@ -1595,8 +1591,41 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
           ) : (
             /* ═══ STANDARD: clean body page — title + content ONLY ═══ */
             <>
+              {/* 4 Corner Marks */}
+              <div
+                className="absolute top-0 left-0 w-full flex justify-between items-start pointer-events-none z-10"
+                style={{
+                  paddingInline: px(28),
+                  paddingTop: px(28),
+                  fontSize: px(EDITORIAL_CAPTION),
+                  color: config.textColor,
+                }}
+              >
+                <div className="font-sans font-medium uppercase tracking-wider" style={{ color: config.accentColor }}>{brandName}</div>
+                <div className="font-sans font-medium" style={{ opacity: isDark ? 0.8 : 0.6 }}>{displayIndex.toString().padStart(2, '0')}</div>
+              </div>
+
+              <div
+                className="absolute bottom-0 left-0 w-full flex justify-between items-end pointer-events-none z-10"
+                style={{
+                  paddingInline: px(28),
+                  paddingBottom: px(24),
+                  fontSize: px(EDITORIAL_CAPTION),
+                  color: config.textColor,
+                }}
+              >
+                <div className="font-sans" style={{ opacity: secondaryOpacity }}>daiziyu.com</div>
+                <div className="font-sans font-medium flex items-center gap-1.5 tracking-wide" style={{ color: config.accentColor }}>
+                  Swipe 
+                  <svg width={px(EDITORIAL_CAPTION + 1)} height={px(EDITORIAL_CAPTION + 1)} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                    <polyline points="12 5 19 12 12 19"></polyline>
+                  </svg>
+                </div>
+              </div>
+
               {hasVisibleTitle && (
-                <div className="shrink-0" style={{ paddingInline: px(28), paddingTop: px(28) }}>
+                <div className="shrink-0 relative z-10" style={{ paddingInline: px(28), paddingTop: px(64) }}>
                   {isEditing ? (
                     <input
                       ref={titleInputRef as any}
@@ -1619,15 +1648,15 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
               )}
 
               <div
-                className="flex-1 min-h-0 relative"
+                className="flex-1 min-h-0 relative z-10"
                 style={{
                   fontSize: bodyFontSize,
                   lineHeight: bodyLineHeight,
                   letterSpacing: BODY_TYPOGRAPHY.letterSpacing,
                   color: config.textColor,
                   paddingInline: px(28),
-                  paddingTop: hasVisibleTitle ? px(16) : px(28),
-                  paddingBottom: px(28),
+                  paddingTop: hasVisibleTitle ? px(24) : px(64),
+                  paddingBottom: px(64),
                 }}
               >
                 {isEditing ? (
@@ -1635,7 +1664,7 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
                     ref={contentInputRef}
                     value={editContent}
                     onChange={(e) => setEditContent(e.target.value)}
-                    className="w-full h-full resize-none"
+                    className="w-full h-full resize-none bg-transparent"
                     style={{ ...bodyEditStyle, color: config.textColor }}
                   />
                 ) : (
