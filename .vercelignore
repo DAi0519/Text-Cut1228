@@ -1,0 +1,12 @@
+node_modules
+dist
+dist-ssr
+.git
+.DS_Store
+.claude
+.codex
+.cursor
+output
+test-results
+PRD-Outputs
+figma-preview
