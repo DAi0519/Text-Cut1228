@@ -1,0 +1,29 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect x="24" y="24" width="464" height="464" rx="112" fill="#FAF7F0"/>
+  <path
+    d="M120 164C173 144 248 132 338 136"
+    stroke="#050505"
+    stroke-width="54"
+    stroke-linecap="round"
+  />
+  <path
+    d="M220 172C206 240 194 314 201 395"
+    stroke="#050505"
+    stroke-width="50"
+    stroke-linecap="round"
+  />
+  <path
+    d="M146 182C189 166 251 157 323 160"
+    stroke="#050505"
+    stroke-opacity="0.7"
+    stroke-width="10"
+    stroke-linecap="round"
+  />
+  <path
+    d="M235 198C226 253 219 314 223 382"
+    stroke="#050505"
+    stroke-opacity="0.7"
+    stroke-width="9"
+    stroke-linecap="round"
+  />
+</svg>
