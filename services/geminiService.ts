@@ -4,6 +4,7 @@ import {
   carvePrefixForRebalance,
   hasAtomicMarkdownSyntax,
   isAtomicMarkdownBlock,
+  splitFencedMarkdownBlock,
   splitIntoMarkdownBlocks,
 } from "../utils/textSplit";
 
@@ -213,6 +214,10 @@ const buildSequentialBodySegments = (
 
     while (remainder) {
       const occupancy = estimateSegmentOccupancy(remainder, capacity);
+      const targetRatio = Math.min(
+        0.62,
+        Math.max(0.28, 0.9 / Math.max(occupancy, 0.01)),
+      );
       const isAtomicBlock = isAtomicMarkdownBlock(remainder);
       if (occupancy <= 1.02) {
         appendChunk(remainder);
@@ -221,15 +226,21 @@ const buildSequentialBodySegments = (
       }
 
       if (isAtomicBlock) {
+        const fencedSplit = splitFencedMarkdownBlock(remainder, targetRatio, {
+          minRatio: 0.28,
+          maxRatio: 0.62,
+        });
+        if (fencedSplit?.prefix && fencedSplit?.suffix) {
+          appendChunk(fencedSplit.prefix);
+          remainder = fencedSplit.suffix.trim();
+          continue;
+        }
+
         appendChunk(remainder);
         remainder = "";
         continue;
       }
 
-      const targetRatio = Math.min(
-        0.62,
-        Math.max(0.28, 0.9 / Math.max(occupancy, 0.01)),
-      );
       const split = carvePrefixForRebalance(remainder, targetRatio, {
         minRatio: 0.28,
         maxRatio: 0.62,
@@ -316,18 +327,34 @@ const buildStructuredMarkdownSegments = (
     let remainder = block;
     while (remainder) {
       const occupancy = estimateSegmentOccupancy(remainder, capacity);
+      const targetRatio = Math.min(
+        0.62,
+        Math.max(0.28, 0.9 / Math.max(occupancy, 0.01)),
+      );
       const isAtomicBlock = isAtomicMarkdownBlock(remainder);
 
-      if (occupancy <= 1.02 || isAtomicBlock) {
+      if (occupancy <= 1.02) {
         appendBlock(remainder);
         remainder = "";
         continue;
       }
 
-      const targetRatio = Math.min(
-        0.62,
-        Math.max(0.28, 0.9 / Math.max(occupancy, 0.01)),
-      );
+      if (isAtomicBlock) {
+        const fencedSplit = splitFencedMarkdownBlock(remainder, targetRatio, {
+          minRatio: 0.28,
+          maxRatio: 0.62,
+        });
+        if (fencedSplit?.prefix && fencedSplit?.suffix) {
+          appendBlock(fencedSplit.prefix);
+          remainder = fencedSplit.suffix.trim();
+          continue;
+        }
+
+        appendBlock(remainder);
+        remainder = "";
+        continue;
+      }
+
       const split = carvePrefixForRebalance(remainder, targetRatio, {
         minRatio: 0.28,
         maxRatio: 0.62,

@@ -5,6 +5,7 @@ import {
   carvePrefixForRebalance,
   hasAtomicMarkdownSyntax,
   isAtomicMarkdownBlock,
+  splitFencedMarkdownBlock,
   splitIntoSentences,
   splitIntoClauses,
   splitAtNearestPunctuation,
@@ -492,10 +493,33 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
     // When not editing, read directly from props to avoid stale editContent
     const sourceContent = (isEditing ? editContent : content).trim();
     if (!sourceContent) return null;
-    if (isAtomicMarkdownBlock(sourceContent)) return null;
 
     const plainFitIndex = getRenderedFitPlainIndex();
     if (!plainFitIndex) return null;
+
+    if (isAtomicMarkdownBlock(sourceContent)) {
+      const fencedSplit = splitFencedMarkdownBlock(
+        sourceContent,
+        plainFitIndex / Math.max(sourceContent.length, 1),
+        { minRatio: 0.18, maxRatio: 0.82 },
+      );
+      if (!fencedSplit?.prefix || !fencedSplit?.suffix) return null;
+
+      return {
+        keptSegment: {
+          title: editTitle,
+          content: fencedSplit.prefix,
+          layout: currentLayout,
+          image: editImage,
+          imageConfig: editImageConfig,
+        },
+        movedSegment: {
+          title: "",
+          content: fencedSplit.suffix,
+          layout: currentLayout === 'cover' ? 'standard' : currentLayout,
+        },
+      };
+    }
 
     const sourceFitIndex = visiblePlainIndexToTextIndex(sourceContent, plainFitIndex);
     const splitIndex = hasAtomicMarkdownSyntax(sourceContent)

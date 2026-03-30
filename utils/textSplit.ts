@@ -44,6 +44,38 @@ const MARKDOWN_LIST_ITEM_RE =
   /^(\s*)(?:[-*+]|\d+[.)])\s+(?:\[[ xX]\]\s+)?/;
 const FENCE_RE = /^(\s*)(`{3,}|~{3,})/;
 const BLOCKQUOTE_RE = /^\s*>/;
+const escapeRegExp = (value: string) =>
+  value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+type FencedMarkdownBlock = {
+  openingLine: string;
+  closingLine: string;
+  contentLines: string[];
+};
+
+const parseFencedMarkdownBlock = (
+  text: string,
+): FencedMarkdownBlock | null => {
+  const normalized = text.replace(/\r\n?/g, "\n").trim();
+  if (!normalized) return null;
+
+  const lines = normalized.split("\n");
+  if (lines.length < 3) return null;
+
+  const openingMatch = lines[0].match(FENCE_RE);
+  if (!openingMatch) return null;
+
+  const fenceToken = openingMatch[2];
+  const closingMatcher = new RegExp(`^\\s*${escapeRegExp(fenceToken)}\\s*$`);
+  const closingLine = lines[lines.length - 1];
+  if (!closingMatcher.test(closingLine)) return null;
+
+  return {
+    openingLine: lines[0],
+    closingLine,
+    contentLines: lines.slice(1, -1),
+  };
+};
 
 export const splitIntoClauses = (text: string): string[] => {
   const matches = text.match(CLAUSE_RE);
@@ -182,6 +214,58 @@ export const hasAtomicMarkdownSyntax = (text: string) =>
     .replace(/\r\n?/g, "\n")
     .split("\n")
     .some((line) => FENCE_RE.test(line) || BLOCKQUOTE_RE.test(line));
+
+export const splitFencedMarkdownBlock = (
+  text: string,
+  ratio: number,
+  opts?: { minRatio?: number; maxRatio?: number },
+): { prefix: string; suffix: string } | null => {
+  const parsed = parseFencedMarkdownBlock(text);
+  if (!parsed) return null;
+
+  const { openingLine, closingLine, contentLines } = parsed;
+  if (contentLines.length < 2) return null;
+
+  const min = opts?.minRatio ?? 0.18;
+  const max = opts?.maxRatio ?? 0.58;
+  const clamped = Math.min(max, Math.max(min, ratio));
+  const totalWeight = contentLines.reduce(
+    (sum, line) => sum + Math.max(line.trim().length, 1),
+    0,
+  );
+
+  if (totalWeight < 2) return null;
+
+  const target = totalWeight * clamped;
+  let bestIndex = 1;
+  let bestScore = Infinity;
+  let runningWeight = 0;
+
+  for (let index = 1; index < contentLines.length; index += 1) {
+    runningWeight += Math.max(contentLines[index - 1].trim().length, 1);
+    const remainingWeight = totalWeight - runningWeight;
+    const balance = Math.abs(target - runningWeight);
+    const tinyPenalty =
+      Math.min(runningWeight, remainingWeight) < totalWeight * min
+        ? totalWeight
+        : 0;
+    const score = balance + tinyPenalty;
+
+    if (score < bestScore) {
+      bestScore = score;
+      bestIndex = index;
+    }
+  }
+
+  const prefixLines = contentLines.slice(0, bestIndex);
+  const suffixLines = contentLines.slice(bestIndex);
+  if (prefixLines.length === 0 || suffixLines.length === 0) return null;
+
+  return {
+    prefix: [openingLine, ...prefixLines, closingLine].join("\n").trim(),
+    suffix: [openingLine, ...suffixLines, closingLine].join("\n").trim(),
+  };
+};
 
 // ── Ratio-based splitting ───────────────────────────────────
 
