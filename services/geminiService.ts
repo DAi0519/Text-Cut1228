@@ -109,6 +109,19 @@ const normalizeThemeTag = (value?: string | null) =>
     .trim()
     .slice(0, 24);
 
+const deriveThemeTagFromTitle = (coverTitle?: string | null) => {
+  const normalizedTitle = normalizeThemeTag(coverTitle);
+  if (!normalizedTitle) return "";
+
+  const conciseClause = normalizedTitle
+    .split(/[，、,：:｜|/]/u)
+    .map((part) => normalizeThemeTag(part))
+    .find(Boolean);
+
+  const candidate = conciseClause || normalizedTitle;
+  return candidate.slice(0, /[\u3040-\u30ff\u3400-\u9fff\uf900-\ufaff\uac00-\ud7af]/.test(candidate) ? 8 : 24);
+};
+
 const isMeaningfulThemeTag = (value?: string | null) => {
   const normalized = normalizeThemeTag(value);
   if (!normalized) return false;
@@ -146,7 +159,10 @@ const deriveFallbackThemeTag = (sourceText: string, coverTitle?: string) => {
     return titleCandidate;
   }
 
-  return "";
+  const titleFallback = deriveThemeTagFromTitle(coverTitle);
+  if (isMeaningfulThemeTag(titleFallback)) return titleFallback;
+
+  return "主题";
 };
 
 const applyThemeTagToCoverSegments = (
