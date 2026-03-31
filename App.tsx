@@ -1743,53 +1743,53 @@ const App: React.FC = () => {
 
         {!hasContent ? (
           // --- HERO INPUT MODE ---
-          <div className="absolute inset-0 flex flex-col items-center justify-center p-6 animate-in fade-in zoom-in-95 duration-700">
-            <div className="w-full max-w-5xl flex flex-col items-center gap-14">
+          <div className="absolute inset-0 flex flex-col items-center justify-center p-4 sm:p-6 animate-in fade-in zoom-in-95 duration-700">
+            <div className="w-full max-w-5xl flex flex-col items-center gap-8 sm:gap-14">
               
               {/* Slogan */}
-              <div className="text-center">
-                <h1 className="text-5xl md:text-7xl font-bold tracking-tighter text-[#18181b] leading-[0.94] text-nowrap">
+              <div className="w-full px-4 text-center sm:px-0">
+                <h1 className="mx-auto whitespace-nowrap text-[clamp(1.5rem,6.8vw,3rem)] font-bold tracking-[-0.06em] text-[#18181b] leading-[0.94] sm:text-5xl md:text-7xl">
                   Quantity produces quality
                   <span className="text-[#ea580c]">.</span>
                 </h1>
               </div>
 
               {/* Hero Input Area */}
-              <div className="w-full max-w-3xl aspect-[4/3] relative group mx-auto">
+              <div className="relative group mx-auto w-full max-w-3xl min-h-[360px] sm:min-h-0 sm:aspect-[4/3]">
                 <div className="absolute inset-0 bg-white rounded-3xl shadow-[0_2px_8px_-2px_rgba(15,23,42,0.06),0_12px_24px_-4px_rgba(15,23,42,0.08),0_24px_64px_-12px_rgba(15,23,42,0.12)] border border-black/[0.06] overflow-hidden flex flex-col transition-colors duration-300 focus-within:border-black/10">
                   
                   {/* Metadata & Content: 2-Column Grid Area */}
-                  <div className="flex flex-col flex-1 min-h-0 px-8 pt-7 pb-6">
+                  <div className="flex flex-col flex-1 min-h-0 px-5 pt-6 pb-5 sm:px-8 sm:pt-7 sm:pb-6">
                     {/* Header Row 1: Title */}
                     <div className="flex items-center mb-1 shrink-0">
-                      <span className="text-xs font-bold uppercase tracking-wider text-black/90 shrink-0 select-none w-24">Title</span>
+                      <span className="text-xs font-bold uppercase tracking-wider text-black/90 shrink-0 select-none w-20 sm:w-24">Title</span>
                       <input
                         type="text"
                         value={config.title}
                         onChange={(e) => setConfig(prev => ({ ...prev, title: e.target.value }))}
                         placeholder="Add a title..."
-                        className="w-full h-10 bg-transparent text-xl font-bold outline-none text-black/90 placeholder:text-black/20 tracking-[0.01em] font-oppo"
+                        className="w-full h-10 bg-transparent text-lg font-bold outline-none text-black/90 placeholder:text-black/20 tracking-[0.01em] font-oppo sm:text-xl"
                       />
                     </div>
                     {/* Header Row 2: Author */}
                     <div className="flex items-center mb-3 shrink-0">
-                      <span className="text-xs font-bold uppercase tracking-wider text-black/90 shrink-0 select-none w-24">Author</span>
+                      <span className="text-xs font-bold uppercase tracking-wider text-black/90 shrink-0 select-none w-20 sm:w-24">Author</span>
                       <input
                         type="text"
                         value={config.authorName}
                         onChange={(e) => setConfig(prev => ({ ...prev, authorName: e.target.value }))}
                         placeholder="Add an author..."
-                        className="w-full h-8 bg-transparent text-base font-medium outline-none text-black/60 placeholder:text-black/20 tracking-[0.01em] font-oppo"
+                        className="w-full h-8 bg-transparent text-sm font-medium outline-none text-black/60 placeholder:text-black/20 tracking-[0.01em] font-oppo sm:text-base"
                       />
                     </div>
                     {/* Body Content Row */}
                     <div className="flex flex-1 min-h-0">
-                      <span className="text-xs font-bold uppercase tracking-wider text-black/90 shrink-0 select-none w-24 pt-[8px]">Content</span>
+                      <span className="text-xs font-bold uppercase tracking-wider text-black/90 shrink-0 select-none w-20 pt-[8px] sm:w-24">Content</span>
                       <textarea
                         value={inputText}
                         onChange={(e) => setInputText(e.target.value)}
                         placeholder="Paste your article or notes here..."
-                        className="w-full h-full flex-1 text-lg text-black/90 placeholder:text-black/20 outline-none resize-none bg-transparent leading-[1.8] font-oppo tracking-wide selection:bg-orange-100 pr-4 -mr-4 custom-scrollbar"
+                        className="w-full h-full flex-1 text-base text-black/90 placeholder:text-black/20 outline-none resize-none bg-transparent leading-[1.8] font-oppo tracking-wide selection:bg-orange-100 pr-4 -mr-4 custom-scrollbar sm:text-lg"
                         spellCheck={false}
                       />
                     </div>
@@ -1800,7 +1800,7 @@ const App: React.FC = () => {
                      onClick={handleProcess}
                      disabled={!inputText.trim() || isProcessing}
                      className={`
-                       w-full h-12 shrink-0 flex items-center justify-end px-8 gap-3 transition-colors duration-300 border-t outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#ea580c]
+                       w-full h-14 shrink-0 flex items-center justify-end px-5 gap-3 transition-colors duration-300 border-t outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#ea580c] sm:h-12 sm:px-8
                        ${isProcessing
                          ? "border-[#ea580c]/20 bg-[#ea580c]/[0.04] text-[#ea580c] cursor-wait"
                          : !inputText.trim()
@@ -1809,7 +1809,7 @@ const App: React.FC = () => {
                        }
                      `}
                   >
-                     <span className="text-xs font-bold uppercase tracking-[0.2em] relative top-[0.5px]">
+                     <span className="relative top-[0.5px] text-xs font-bold uppercase tracking-[0.16em] sm:tracking-[0.2em]">
                        {isProcessing ? "Processing" : "Generate Cards"}
                      </span>
                      {isProcessing ? (
