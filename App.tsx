@@ -1767,6 +1767,7 @@ const App: React.FC = () => {
                         type="text"
                         value={config.title}
                         onChange={(e) => setConfig(prev => ({ ...prev, title: e.target.value }))}
+                        placeholder="Add a title..."
                         className="w-full h-10 bg-transparent text-xl font-bold outline-none text-black/90 placeholder:text-black/20 tracking-[0.01em] font-oppo"
                       />
                     </div>
@@ -1777,6 +1778,7 @@ const App: React.FC = () => {
                         type="text"
                         value={config.authorName}
                         onChange={(e) => setConfig(prev => ({ ...prev, authorName: e.target.value }))}
+                        placeholder="Add an author..."
                         className="w-full h-8 bg-transparent text-base font-medium outline-none text-black/60 placeholder:text-black/20 tracking-[0.01em] font-oppo"
                       />
                     </div>
