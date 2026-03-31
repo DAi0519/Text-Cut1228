@@ -72,6 +72,7 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
   const [editImageConfig, setEditImageConfig] = useState<ImageConfig>(imageConfig || DEFAULT_IMG_CONFIG);
   const [currentLayout, setCurrentLayout] = useState<'standard' | 'cover'>(layout);
   const [isOverflowing, setIsOverflowing] = useState(false);
+  const [bodyOccupancy, setBodyOccupancy] = useState(0);
   const [snapGuides, setSnapGuides] = useState<{ x: boolean; y: boolean }>({ x: false, y: false });
 
   const contentRef = useRef<HTMLDivElement>(null);
@@ -619,8 +620,10 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
     if (contentRef.current && contentMeasureRef.current && !isEditing) {
       const { clientHeight } = contentRef.current;
       const { scrollHeight } = contentMeasureRef.current;
+      setBodyOccupancy(clientHeight > 0 ? scrollHeight / clientHeight : 0);
       setIsOverflowing(scrollHeight > clientHeight + 2);
     } else {
+      setBodyOccupancy(0);
       setIsOverflowing(false);
     }
   }, [content, editContent, currentLayout, config.fontSize, config.cardScale, config.aspectRatio, config.title, config.authorName, isEditing, config.fontStyle, config.composition, editImage, editImageConfig]);
@@ -806,6 +809,29 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
 
   const isCover = currentLayout === 'cover';
   const hasVisibleTitle = isEditing || Boolean(editTitle.trim());
+  const shouldSoftCenterStandardBody =
+    !isCover &&
+    !isEditing &&
+    !editImage &&
+    config.composition !== 'technical' &&
+    bodyOccupancy > 0 &&
+    bodyOccupancy < 0.52;
+  const standardBodyCenterOffset = (() => {
+    if (!shouldSoftCenterStandardBody) return 0;
+    const sparseThreshold = 0.52;
+    const fullySparseThreshold = 0.18;
+    const normalized = Math.max(
+      0,
+      Math.min(
+        1,
+        (sparseThreshold - bodyOccupancy) /
+          (sparseThreshold - fullySparseThreshold),
+      ),
+    );
+
+    // Push sparse cards a bit closer to center while keeping the reading rhythm stable.
+    return 24 + normalized * 64;
+  })();
 
   // --- IMAGE RENDERING UTILS ---
   const renderEditableImage = (className: string = "", forceCoverLayout: boolean = false) => {
@@ -1148,7 +1174,14 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
         {!isCover && <div className={`absolute top-0 h-full ${gridColor}`} style={{ left: px(BODY_TYPOGRAPHY.sideInset + 6), width: '1px' }}></div>}
         <div
           className={`flex-1 relative z-10 flex flex-col h-full ${isCover ? 'justify-center' : ''}`}
-          style={isCover ? undefined : { paddingLeft: px(BODY_TYPOGRAPHY.sideInset + 4) }}
+          style={
+            isCover
+              ? undefined
+              : {
+                  paddingLeft: px(BODY_TYPOGRAPHY.sideInset + 4),
+                  paddingTop: px(standardBodyCenterOffset),
+                }
+          }
         >
           {isCover ? (
              <div
@@ -1780,7 +1813,13 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
               </div>
 
               {hasVisibleTitle && (
-                <div className="shrink-0 relative z-10" style={{ paddingInline: px(28), paddingTop: px(64) }}>
+                <div
+                  className="shrink-0 relative z-10"
+                  style={{
+                    paddingInline: px(28),
+                    paddingTop: px(64 + standardBodyCenterOffset),
+                  }}
+                >
                   {isEditing ? (
                     <input
                       ref={titleInputRef as any}
@@ -1810,7 +1849,9 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
                   letterSpacing: BODY_TYPOGRAPHY.letterSpacing,
                   color: config.textColor,
                   paddingInline: px(28),
-                  paddingTop: hasVisibleTitle ? px(24) : px(64),
+                  paddingTop: hasVisibleTitle
+                    ? px(24)
+                    : px(64 + standardBodyCenterOffset),
                   paddingBottom: px(64),
                 }}
               >
