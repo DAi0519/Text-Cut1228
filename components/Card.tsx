@@ -815,11 +815,11 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
     !editImage &&
     config.composition !== 'technical' &&
     bodyOccupancy > 0 &&
-    bodyOccupancy < 0.62;
+    bodyOccupancy < 0.52;
   const standardBodyCenterOffset = (() => {
     if (!shouldSoftCenterStandardBody) return 0;
-    const sparseThreshold = 0.62;
-    const fullySparseThreshold = 0.16;
+    const sparseThreshold = 0.52;
+    const fullySparseThreshold = 0.18;
     const normalized = Math.max(
       0,
       Math.min(
@@ -829,8 +829,8 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
       ),
     );
 
-    // Push sparse cards noticeably closer to center while preserving a little top bias.
-    return 32 + normalized * 88;
+    // Push sparse cards a bit closer to center while keeping the reading rhythm stable.
+    return 24 + normalized * 64;
   })();
 
   // --- IMAGE RENDERING UTILS ---
