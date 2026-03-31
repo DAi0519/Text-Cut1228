@@ -104,15 +104,27 @@ const stripContinuationMarkers = (title: string) =>
 
 const normalizeThemeTag = (value?: string | null) =>
   (value || "")
-    .replace(/^[#"'“”‘’\s]+|[#"'“”‘’\s]+$/g, "")
+    .replace(/^[#>"'“”‘’`~\-–—_=+*•·|/\\:;,.!?()\[\]{}<\s]+|[#>"'“”‘’`~\-–—_=+*•·|/\\:;,.!?()\[\]{}<\s]+$/g, "")
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, 24);
 
+const isMeaningfulThemeTag = (value?: string | null) => {
+  const normalized = normalizeThemeTag(value);
+  if (!normalized) return false;
+
+  // Reject placeholder endings and symbol-only tags like ">" or "->".
+  if (/^(project text|untitled|fin|the end|感谢阅读|感谢观看|结束|结束！)$/i.test(normalized)) {
+    return false;
+  }
+
+  return /[\p{L}\p{N}]/u.test(normalized);
+};
+
 const deriveFallbackThemeTag = (sourceText: string, coverTitle?: string) => {
   const headings = extractExplicitHeadings(sourceText);
   const headingCandidate = normalizeThemeTag(headings[0]);
-  if (headingCandidate) return headingCandidate;
+  if (isMeaningfulThemeTag(headingCandidate)) return headingCandidate;
 
   const lines = sourceText
     .replace(/\r\n?/g, "\n")
@@ -123,15 +135,18 @@ const deriveFallbackThemeTag = (sourceText: string, coverTitle?: string) => {
     (line) => line.length <= 24 && !/[。！？；：，,.!?;:]/.test(line),
   );
   if (shortLineCandidate) {
-    return normalizeThemeTag(shortLineCandidate.replace(/^[#*\-\d.\s]+/, ""));
+    const normalizedShortLine = normalizeThemeTag(
+      shortLineCandidate.replace(/^[#>*\-\d.\s]+/, ""),
+    );
+    if (isMeaningfulThemeTag(normalizedShortLine)) return normalizedShortLine;
   }
 
   const titleCandidate = normalizeThemeTag(coverTitle);
-  if (titleCandidate && !/^(project text|untitled|fin|the end)$/i.test(titleCandidate)) {
+  if (isMeaningfulThemeTag(titleCandidate)) {
     return titleCandidate;
   }
 
-  return "Essay";
+  return "";
 };
 
 const applyThemeTagToCoverSegments = (
@@ -142,7 +157,7 @@ const applyThemeTagToCoverSegments = (
   const fallbackCoverTitle =
     segments.find((segment) => segment.layout === "cover")?.title?.trim() || "";
   const themeTag =
-    normalizeThemeTag(preferredTag) ||
+    (isMeaningfulThemeTag(preferredTag) ? normalizeThemeTag(preferredTag) : "") ||
     deriveFallbackThemeTag(sourceText, fallbackCoverTitle);
 
   return segments.map((segment) =>
@@ -381,7 +396,7 @@ const buildStructuredMarkdownSegments = (
     },
     ...bodySegments,
     {
-      title: options?.endTitle?.trim() || "FIN",
+      title: options?.endTitle?.trim() || "感谢阅读",
       content: "",
       layout: "cover" as const,
     },
@@ -414,7 +429,7 @@ const collapseToSequentialFlow = (
     },
     ...bodySegments,
     {
-      title: endSegment?.title.trim() || "FIN",
+      title: endSegment?.title.trim() || "感谢阅读",
       content: "",
       layout: "cover" as const,
     },
@@ -635,7 +650,7 @@ export const splitTextIntoCards = async (
       5. **STRUCTURE**:
          - **Card 1 (Cover)**: Title = Project Title, Content = "", Layout = "cover".
          - **Card 2..N (Body)**: Title = Segment Title, Content = Segment Text, Layout = "standard".
-         - **Card N+1 (End)**: Title = "FIN", Content = "", Layout = "cover".
+         - **Card N+1 (End)**: Title = "感谢阅读", Content = "", Layout = "cover".
          - Also return a top-level "themeTag": a short article topic label shared by the first and last cover.
          - "themeTag" should be 1-4 words, plain text, no numbering, no quotes, no sentence punctuation.
 
@@ -692,7 +707,7 @@ export const splitTextIntoCards = async (
       const endTitle =
         [...sanitizedSegments]
           .reverse()
-          .find((segment) => segment.layout === "cover")?.title || "FIN";
+          .find((segment) => segment.layout === "cover")?.title || "感谢阅读";
 
       return buildStructuredMarkdownSegments(text, capacity, {
         coverTitle,
@@ -785,7 +800,7 @@ export const splitTextIntoCards = async (
 
     // 3. End Card
     segments.push({
-      title: "The End",
+      title: "感谢阅读",
       content: "",
       layout: "cover"
     });
