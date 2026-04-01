@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { CardConfig, AspectRatio, FontStyle, Preset, Composition, ImageConfig, ImageAspectRatio } from '../types';
+import { CardConfig, AspectRatio, FontStyle, Preset, Composition, ImageConfig, ImageAspectRatio, BackgroundStyle } from '../types';
 import { 
   Pencil, 
   LayoutTemplate, Image as ImageIcon, ArrowDownToLine, Download,
@@ -193,6 +193,10 @@ export const Console: React.FC<ConsoleProps> = ({
     { value: 'technical', label: 'Tech' },
     { value: 'editorial', label: 'Edito' },
   ];
+  const backgroundStyles: { value: BackgroundStyle; label: string }[] = [
+    { value: 'none', label: 'None' },
+    { value: 'grid', label: 'Grid' },
+  ];
 
   const positionLabels: Record<string, string> = { top: 'Top', bottom: 'Bottom', left: 'Left', right: 'Right' };
   const positionOptions: ImageConfig["position"][] = ["top", "bottom", "left", "right"];
@@ -363,6 +367,23 @@ export const Console: React.FC<ConsoleProps> = ({
                    ))}
                  </div>
                </div>
+
+               {config.composition === 'editorial' && (
+                 <div className={blockClass}>
+                   <div className={sectionLabelClass}>Background</div>
+                   <div className="flex flex-wrap gap-2">
+                     {backgroundStyles.map((background) => (
+                       <button
+                         key={background.value}
+                         onClick={() => updateConfig('backgroundStyle', background.value)}
+                         className={`${chipClass} ${config.backgroundStyle === background.value ? activeChipClass : ''}`}
+                       >
+                         {background.label}
+                       </button>
+                     ))}
+                   </div>
+                 </div>
+               )}
 
                <div className={blockClass}>
                  <div className={sectionLabelClass}>Accent</div>

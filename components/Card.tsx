@@ -1462,6 +1462,7 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
   // simple index top-right, huge title with accent/muted color split, "Part X" pill badge, author bottom-left
   const renderEditorial = () => {
     const hasImage = !!editImage;
+    const showEditorialGrid = config.backgroundStyle === 'grid';
     const titleScale = config.editorialTitleScale || 1.0;
     const secondaryOpacity = 0.4;
     const editorialAuthorName = config.authorName?.trim() || "Author";
@@ -1505,13 +1506,46 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
     const coverBadgePaddingY = px(6 * titleScale);
     const coverBadgePaddingX = px(16 * titleScale);
     const coverBadgeMarginTop = px(24 * titleScale);
+    const editorialGridVerticalColor = isDark
+      ? 'rgba(255,255,255,0.032)'
+      : 'rgba(24,24,27,0.03)';
+    const editorialGridHorizontalColor = isDark
+      ? 'rgba(255,255,255,0.02)'
+      : 'rgba(24,24,27,0.018)';
+    const editorialGridBackgroundImage = `
+      linear-gradient(to right, ${editorialGridVerticalColor} 1px, transparent 1px),
+      linear-gradient(to bottom, ${editorialGridHorizontalColor} 1px, transparent 1px)
+    `;
+    const editorialGridBackgroundSize = '36px 36px, 36px 36px';
 
     return (
       <div className="flex flex-col h-full w-full relative overflow-hidden">
 
-        {/* Layer 1: Full-screen background image */}
+        {/* Layer 1: Editorial grid background */}
+        {showEditorialGrid && (
+          <div
+            className="absolute inset-0 z-0 pointer-events-none"
+            style={{
+              backgroundImage: editorialGridBackgroundImage,
+              backgroundSize: editorialGridBackgroundSize,
+            }}
+          />
+        )}
+
+        {/* Layer 2: Subtle grain for non-grid solid backgrounds */}
+        {!hasImage && !showEditorialGrid && (
+          <div
+            className={`absolute inset-0 z-[1] pointer-events-none ${isDark ? 'opacity-[0.06]' : 'opacity-[0.04]'}`}
+            style={{
+              backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
+              mixBlendMode: isDark ? 'screen' : 'multiply'
+            }}
+          />
+        )}
+
+        {/* Layer 3: Full-screen background image */}
         {hasImage && (
-          <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
+          <div className="absolute inset-0 z-[2] overflow-hidden pointer-events-none">
             <img
               src={editImage}
               alt="Background"
@@ -1538,20 +1572,9 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
           </div>
         )}
 
-        {/* Layer 1.5: Subtle Noise/Grain Texture (always active on solid backgrounds) */}
-        {!hasImage && (
-          <div 
-            className={`absolute inset-0 z-0 pointer-events-none ${isDark ? 'opacity-[0.06]' : 'opacity-[0.04]'}`} 
-            style={{ 
-              backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
-              mixBlendMode: isDark ? 'screen' : 'multiply'
-            }} 
-          />
-        )}
-
-        {/* Layer 2: Snap guide lines — only visible during drag near center */}
+        {/* Layer 4: Snap guide lines — only visible during drag near center */}
         {(snapGuides.x || snapGuides.y) && (
-          <div className="absolute inset-0 z-[2] pointer-events-none">
+          <div className="absolute inset-0 z-[3] pointer-events-none">
             {snapGuides.x && (
               <div className="absolute top-0 bottom-0 left-1/2" style={{ width: '1px', background: 'rgba(255,255,255,0.6)', boxShadow: '0 0 4px rgba(0,0,0,0.3)' }} />
             )}
@@ -1561,7 +1584,7 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
           </div>
         )}
 
-        {/* Layer 4: Content — also handles image drag in edit mode */}
+        {/* Layer 5: Content — also handles image drag in edit mode */}
         <div
           className={`relative z-10 flex flex-col h-full w-full select-none ${isEditing && hasImage ? 'cursor-move' : ''}`}
           onMouseDown={(e) => {

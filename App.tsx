@@ -5,6 +5,7 @@ import { ImageCropModal } from "./components/ImageCropModal";
 import {
   CardConfig,
   AspectRatio,
+  BackgroundStyle,
   CardSegment,
   FontStyle,
   ImageConfig,
@@ -23,12 +24,13 @@ const VALID_ASPECT_RATIOS = new Set([
   AspectRatio.WIDE,
 ]);
 const VALID_COLORWAYS = new Set(["snow", "neon"]);
+const VALID_BACKGROUND_STYLES = new Set<BackgroundStyle>(["none", "grid"]);
 const VALID_FONT_STYLES = new Set([
   FontStyle.CHILL,
   FontStyle.OPPO,
   FontStyle.SWEI,
 ]);
-const CONFIG_VERSION = 5;
+const CONFIG_VERSION = 6;
 const CARD_BASE_WIDTHS: Record<AspectRatio, number> = {
   [AspectRatio.PORTRAIT]: 380,
   [AspectRatio.SQUARE]: 480,
@@ -367,6 +369,10 @@ const migrateConfig = (
     next.editorialTitleScale = defaults.editorialTitleScale;
   }
 
+  if (raw.backgroundStyle == null) {
+    next.backgroundStyle = defaults.backgroundStyle;
+  }
+
   return normalizeConfig(next, defaults);
 };
 
@@ -386,6 +392,9 @@ const normalizeConfig = (
     colorway: VALID_COLORWAYS.has(merged.colorway)
       ? merged.colorway
       : defaults.colorway,
+    backgroundStyle: VALID_BACKGROUND_STYLES.has(merged.backgroundStyle)
+      ? merged.backgroundStyle
+      : defaults.backgroundStyle,
     fontStyle: VALID_FONT_STYLES.has(merged.fontStyle)
       ? merged.fontStyle
       : defaults.fontStyle,
@@ -485,6 +494,7 @@ const App: React.FC = () => {
   const [config, setConfig] = useState<CardConfig>(() => {
     const defaultConfig = {
       colorway: "snow",
+      backgroundStyle: "grid",
       backgroundColor: "#f4f4f5",
       textColor: "#18181b",
       accentColor: "#ea580c",
