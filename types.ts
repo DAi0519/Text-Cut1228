@@ -52,6 +52,7 @@ export interface ImageConfig {
 }
 
 export interface CardSegment {
+  id?: string;
   title: string;
   content: string;
   layout?: 'standard' | 'cover';

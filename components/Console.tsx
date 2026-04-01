@@ -3,7 +3,7 @@ import { CardConfig, AspectRatio, FontStyle, Preset, Composition, ImageConfig, I
 import { 
   Pencil, 
   LayoutTemplate, Image as ImageIcon, ArrowDownToLine, Download,
-  Sparkles, ChevronDown, Layers, CircleUserRound
+  Sparkles, ChevronDown, Layers, CircleUserRound, Trash2
 } from 'lucide-react';
 
 interface ConsoleProps {
@@ -35,6 +35,8 @@ interface ConsoleProps {
   onUpdateImageConfig: (updates: Partial<ImageConfig>) => void;
   onSelectFrameSize: (ratio?: ImageAspectRatio) => void;
   onRemoveImage: () => void;
+  onDeleteCard: () => void;
+  activeCardCanDelete: boolean;
   capacityFeedback?: string | null;
   onHeightChange?: (height: number) => void;
   isCollapsed?: boolean;
@@ -66,7 +68,7 @@ export const Console: React.FC<ConsoleProps> = ({
   activeCardIndex, editingIndex,
   onToggleLayout, onStartEdit, onSaveEdit, onCancelEdit, onTriggerImage,
   onTriggerAvatarUpload, onDownload, onToggleHighlight,
-  activeHasImage, activeImageConfig, onUpdateImageConfig, onSelectFrameSize, onRemoveImage,
+  activeHasImage, activeImageConfig, onUpdateImageConfig, onSelectFrameSize, onRemoveImage, onDeleteCard, activeCardCanDelete,
   capacityFeedback,
   onHeightChange,
   isCollapsed = false,
@@ -168,7 +170,7 @@ export const Console: React.FC<ConsoleProps> = ({
         onSaveEdit();
       }
     }
-  }, [activeTab]);
+  }, [activeTab, activeCardIndex, editingIndex, onSaveEdit, onStartEdit]);
 
   // --- Auto edit when switching cards while in Editor tab ---
   const prevCardRef = useRef(activeCardIndex);
@@ -178,7 +180,7 @@ export const Console: React.FC<ConsoleProps> = ({
     if (activeTab === 'editor' && activeCardIndex !== null && activeCardIndex !== prevCard) {
       onStartEdit();
     }
-  }, [activeCardIndex]);
+  }, [activeCardIndex, activeTab, onStartEdit]);
 
   const fontStyles = [
     { value: FontStyle.CHILL, label: 'Chill' },
@@ -641,6 +643,17 @@ export const Console: React.FC<ConsoleProps> = ({
                           Remove Image
                         </button>
                       </div>
+                    )}
+
+                    {activeCardCanDelete && (
+                      <button
+                        onClick={onDeleteCard}
+                        className="min-h-[36px] rounded-[11px] border border-red-200 bg-red-50/60 px-3 text-[9px] font-bold uppercase tracking-[0.08em] text-red-500/85 transition-colors hover:border-red-300 hover:bg-red-50 hover:text-red-600 inline-flex items-center justify-center gap-2"
+                        aria-label="Delete Card"
+                      >
+                        <Trash2 size={12} />
+                        <span>Delete Card</span>
+                      </button>
                     )}
                  </div>
                ) : (

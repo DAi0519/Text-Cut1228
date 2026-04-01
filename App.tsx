@@ -38,6 +38,11 @@ const CONSOLE_COLLAPSED_SAFE_AREA = 92;
 const PORTRAIT_STAGE_INSET_MIN = 24;
 const PORTRAIT_STAGE_INSET_MAX = 72;
 
+const canDeleteCardAtIndex = (cards: CardSegment[], index: number) =>
+  index > 0 &&
+  index < cards.length - 1 &&
+  cards[index]?.layout !== "cover";
+
 /* ─────────────────────────────────────────────────────────
  * PANEL CARD STORYBOARD
  *
@@ -514,7 +519,40 @@ const App: React.FC = () => {
   const activeCardIndexForUpload = useRef<number | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<(CardHandle | null)[]>([]);
+  const nextCardIdRef = useRef(0);
   const capacitySignature = getCapacitySignature(config);
+  const createCardId = useCallback(
+    () => `card_${Date.now().toString(36)}_${nextCardIdRef.current++}`,
+    [],
+  );
+  const withCardId = useCallback(
+    (segment: CardSegment) => ({
+      ...segment,
+      id: segment.id || createCardId(),
+    }),
+    [createCardId],
+  );
+  const resolveCenteredCardIndex = useCallback(() => {
+    const container = scrollContainerRef.current;
+    if (!container || cards.length === 0) return activeCardIndex;
+
+    const center = container.scrollLeft + container.clientWidth / 2;
+    let minDistance = Infinity;
+    let closestIndex = activeCardIndex ?? 0;
+    const cardElements = container.querySelectorAll(".card-wrapper");
+
+    cardElements.forEach((el, idx) => {
+      const element = el as HTMLElement;
+      const rectCenter = element.offsetLeft + element.offsetWidth / 2;
+      const distance = Math.abs(center - rectCenter);
+      if (distance < minDistance) {
+        minDistance = distance;
+        closestIndex = idx;
+      }
+    });
+
+    return closestIndex;
+  }, [activeCardIndex, cards.length]);
 
   // --- Effects ---
   useEffect(() => {
@@ -923,7 +961,7 @@ const App: React.FC = () => {
       try {
         const segments = await splitTextIntoCards(inputText, configSnapshot);
         const userTitle = configSnapshot.title.trim();
-        const nextSegments = [...segments];
+        const nextSegments = segments.map(withCardId);
 
         if (nextSegments.length > 0) {
           if (userTitle) {
@@ -969,7 +1007,7 @@ const App: React.FC = () => {
         setIsProcessing(false);
       }
     },
-    [config, inputText],
+    [config, inputText, withCardId],
   );
 
   const handleProcess = useCallback(async () => {
@@ -1111,6 +1149,7 @@ const App: React.FC = () => {
         originalImage:
           updatedSegment.originalImage ?? existing?.originalImage,
       };
+
       newCards[index] = nextSegment;
 
       // Keep the editorial theme tag in sync between the first and last cover.
@@ -1159,7 +1198,10 @@ const App: React.FC = () => {
       setCards((prev) => {
         const next = [...prev];
         if (!next[index]) return prev;
-        next[index] = splitResult.keptSegment;
+        next[index] = {
+          ...splitResult.keptSegment,
+          id: next[index].id || createCardId(),
+        };
 
         const movedContent = splitResult.movedSegment.content.trim();
         const nextCard = next[index + 1];
@@ -1185,13 +1227,13 @@ const App: React.FC = () => {
             content: `${movedContent}${sep}${nextCard.content.trim()}`.trim(),
           };
         } else {
-          next.splice(index + 1, 0, splitResult.movedSegment);
+          next.splice(index + 1, 0, withCardId(splitResult.movedSegment));
         }
 
         return next;
       });
     },
-    [inputText],
+    [createCardId, inputText, withCardId],
   );
 
   const applyUnderfillMerge = useCallback(
@@ -1221,20 +1263,56 @@ const App: React.FC = () => {
     setHasCardEditsSinceGenerate(true);
     setCards((prev) => {
       const newCards = [...prev];
-      newCards.splice(index + 1, 0, splitSegment);
+      newCards.splice(index + 1, 0, withCardId(splitSegment));
       return newCards;
     });
+  }, [withCardId]);
+
+  const handleDeleteCard = useCallback((index: number) => {
+    let didDelete = false;
+    let nextFocusedIndex: number | null = null;
+
+    setHasCardEditsSinceGenerate(true);
+    setCards((prev) => {
+      if (!canDeleteCardAtIndex(prev, index)) return prev;
+
+      const next = [...prev];
+      next.splice(index, 1);
+      didDelete = true;
+
+      nextFocusedIndex =
+        index < next.length - 1 ? index : Math.max(0, index - 1);
+
+      return next;
+    });
+
+    if (!didDelete) return;
+
+    setEditingIndex((prev) => {
+      if (prev === null) return prev;
+      if (prev === index) return null;
+      return prev > index ? prev - 1 : prev;
+    });
+    setActiveCardIndex((prev) => {
+      if (prev === null) return nextFocusedIndex;
+      if (prev < index) return prev;
+      if (prev > index) return prev - 1;
+      return nextFocusedIndex;
+    });
+    setActiveEditConfig(null);
+    setActiveHasImage(false);
   }, []);
 
-  const handleStartEdit = (index: number) => {
-    if (editingIndex !== null && editingIndex !== index) {
+  const handleStartEdit = (requestedIndex: number) => {
+    if (editingIndex !== null && editingIndex !== requestedIndex) {
       cardRefs.current[editingIndex]?.save();
     }
-    setEditingIndex(index);
+    setActiveCardIndex(requestedIndex);
+    setEditingIndex(requestedIndex);
     // Reset state for new edit
     setActiveEditConfig(null);
     setActiveHasImage(false);
-    cardRefs.current[index]?.startEdit();
+    cardRefs.current[requestedIndex]?.startEdit();
   };
 
   const handleSaveEdit = (index: number) => {
@@ -1626,6 +1704,9 @@ const App: React.FC = () => {
 
   const hasContent = cards.length > 0;
   const isLayoutSettling = hasContent && pendingOverflowNormalization;
+  const editorTargetIndex = editingIndex ?? activeCardIndex;
+  const activeCardCanDelete =
+    editorTargetIndex !== null && canDeleteCardAtIndex(cards, editorTargetIndex);
 
   const getCardStyle = (ratio: AspectRatio, scale: number) => {
     const ratioValue = ratio.replace(':', '/');
@@ -1681,25 +1762,28 @@ const App: React.FC = () => {
     activeCardIndex,
     editingIndex,
     onToggleLayout: () =>
-      activeCardIndex !== null && cardRefs.current[activeCardIndex]?.toggleLayout(),
+      editorTargetIndex !== null && cardRefs.current[editorTargetIndex]?.toggleLayout(),
     onStartEdit: () =>
       activeCardIndex !== null && handleStartEdit(activeCardIndex),
     onSaveEdit: () =>
-      activeCardIndex !== null && handleSaveEdit(activeCardIndex),
+      editorTargetIndex !== null && handleSaveEdit(editorTargetIndex),
     onCancelEdit: () =>
-      activeCardIndex !== null && handleCancelEdit(activeCardIndex),
+      editorTargetIndex !== null && handleCancelEdit(editorTargetIndex),
     onTriggerImage: () =>
-      activeCardIndex !== null && triggerImageUpload(activeCardIndex),
+      editorTargetIndex !== null && triggerImageUpload(editorTargetIndex),
     onTriggerAvatarUpload: triggerAvatarUpload,
     onDownload: () =>
       activeCardIndex !== null && handleDownload(activeCardIndex),
     onToggleHighlight: () =>
-      activeCardIndex !== null && cardRefs.current[activeCardIndex]?.toggleHighlight(),
+      editorTargetIndex !== null && cardRefs.current[editorTargetIndex]?.toggleHighlight(),
     activeHasImage,
     activeImageConfig: activeEditConfig,
     onUpdateImageConfig: handleUpdateImageConfig,
     onSelectFrameSize: handleSelectFrameSize,
     onRemoveImage: handleRemoveImage,
+    onDeleteCard: () =>
+      editorTargetIndex !== null && handleDeleteCard(editorTargetIndex),
+    activeCardCanDelete,
     capacityFeedback,
     isCollapsed: isConsoleCollapsed,
     onToggleCollapse: () => setIsConsoleCollapsed((prev) => !prev),
@@ -1842,7 +1926,28 @@ const App: React.FC = () => {
                  <div className="flex items-center gap-12 min-h-full">
                     {cards.map((segment, idx) => (
                       <div
-                        key={idx}
+                        key={segment.id ?? `fallback-${idx}`}
+                        onClick={(event) => {
+                          const container = scrollContainerRef.current;
+                          const wrapper = event.currentTarget as HTMLDivElement;
+
+                          setActiveCardIndex(idx);
+
+                          if (container) {
+                            const targetLeft =
+                              wrapper.offsetLeft -
+                              container.clientWidth / 2 +
+                              wrapper.offsetWidth / 2;
+                            container.scrollTo({
+                              left: Math.max(0, targetLeft),
+                              behavior: "smooth",
+                            });
+                          }
+
+                          if (activeConsoleTab === "editor") {
+                            handleStartEdit(idx);
+                          }
+                        }}
                         className={`card-wrapper flex-shrink-0 snap-center transform-gpu transition-[transform,opacity] ${getCardWrapperStateClass(
                           activeCardIndex === idx,
                           activeConsoleTab,
