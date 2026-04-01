@@ -1747,6 +1747,11 @@ const App: React.FC = () => {
     portraitAvailableStageWidth / activeCardWidth
   );
   const deckZoomLevel = portraitFitZoom;
+  const renderedCardWidth = activeCardWidth * deckZoomLevel;
+  const deckEdgeInset = Math.max(
+    24,
+    (viewportSize.width - renderedCardWidth) / 2,
+  );
   const portraitDeckInset = clamp(
     (viewportSize.height - bottomDockSafeArea - activeCardHeight * deckZoomLevel) / 2,
     PORTRAIT_STAGE_INSET_MIN,
@@ -1822,7 +1827,7 @@ const App: React.FC = () => {
       />
 
       {/* Main Content Stage */}
-      <div className={`flex-1 relative overflow-hidden transition-all duration-700 ${!hasContent ? 'bg-white' : 'bg-[#e4e4e7]/30'}`}>
+      <div className="flex-1 relative overflow-hidden bg-white transition-all duration-700">
         {/* Background Texture */}
         <div
           className="absolute inset-0 pointer-events-none opacity-20 mix-blend-multiply"
@@ -1922,10 +1927,10 @@ const App: React.FC = () => {
           <>
             <div 
                  ref={scrollContainerRef}
-                 className={`absolute inset-0 flex items-center overflow-x-auto snap-x snap-mandatory px-[50vw] custom-scrollbar animate-in fade-in duration-1000 transition-opacity duration-300 ${isLayoutSettling ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
+                 className={`absolute inset-0 flex items-center overflow-x-auto snap-x snap-mandatory custom-scrollbar animate-in fade-in duration-1000 transition-opacity duration-300 ${isLayoutSettling ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
                  style={{ 
-                   paddingLeft: `calc(50vw - ${activeCardWidth / 2}px)`, 
-                   paddingRight: `calc(50vw - ${activeCardWidth / 2}px)`,
+                   paddingLeft: `${deckEdgeInset}px`,
+                   paddingRight: `${deckEdgeInset}px`,
                    paddingTop: hasContent ? portraitDeckInset : 0,
                    paddingBottom: hasContent ? bottomDockSafeArea : 0,
                    transition: 'opacity 220ms ease',

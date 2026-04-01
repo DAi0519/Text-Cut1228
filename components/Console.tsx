@@ -3,7 +3,7 @@ import { CardConfig, AspectRatio, FontStyle, Preset, Composition, ImageConfig, I
 import { 
   Pencil, 
   LayoutTemplate, Image as ImageIcon, ArrowDownToLine, Download,
-  Sparkles, ChevronDown, Layers, CircleUserRound, Trash2
+  Sparkles, ChevronDown, Layers, CircleUserRound
 } from 'lucide-react';
 
 interface ConsoleProps {
@@ -672,7 +672,6 @@ export const Console: React.FC<ConsoleProps> = ({
                         className="min-h-[36px] rounded-[11px] border border-red-200 bg-red-50/60 px-3 text-[9px] font-bold uppercase tracking-[0.08em] text-red-500/85 transition-colors hover:border-red-300 hover:bg-red-50 hover:text-red-600 inline-flex items-center justify-center gap-2"
                         aria-label="Delete Card"
                       >
-                        <Trash2 size={12} />
                         <span>Delete Card</span>
                       </button>
                     )}
