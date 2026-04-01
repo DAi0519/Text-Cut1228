@@ -3,7 +3,7 @@ import { CardConfig, AspectRatio, FontStyle, Preset, Composition, ImageConfig, I
 import { 
   Pencil, 
   LayoutTemplate, Image as ImageIcon, ArrowDownToLine, Download,
-  Sparkles, ChevronDown, Layers, CircleUserRound
+  Sparkles, ChevronDown, Layers, CircleUserRound, Shuffle
 } from 'lucide-react';
 
 interface ConsoleProps {
@@ -51,6 +51,7 @@ const COLORWAYS: Preset[] = [
 ];
 
 const ACCENT_COLORS = [
+  { id: 'poster-white', hex: '#ffffff' },
   { id: 'poster-orange', hex: '#ea580c' },
   { id: 'poster-purple', hex: '#8b579c' },
   { id: 'poster-red', hex: '#f02d1a' },
@@ -374,33 +375,31 @@ export const Console: React.FC<ConsoleProps> = ({
                    <div className={sectionLabelClass}>Background</div>
                    <div className="flex flex-wrap gap-2">
                      {backgroundStyles.map((background) => (
-                       <button
-                         key={background.value}
-                         onClick={() => {
-                           if (
-                             background.value === 'gradient' &&
-                             config.backgroundStyle === 'gradient'
-                           ) {
-                             onRandomizeGradient?.();
-                             return;
-                           }
-                           updateConfig('backgroundStyle', background.value);
-                         }}
-                         className={`${chipClass} ${config.backgroundStyle === background.value ? activeChipClass : ''}`}
-                       >
-                         {background.label}
-                       </button>
+                       <React.Fragment key={background.value}>
+                         <button
+                           onClick={() => updateConfig('backgroundStyle', background.value)}
+                           className={`${chipClass} ${config.backgroundStyle === background.value ? activeChipClass : ''}`}
+                         >
+                           {background.label}
+                         </button>
+                         {background.value === 'gradient' && (
+                           <button
+                             onClick={onRandomizeGradient}
+                             disabled={config.backgroundStyle !== 'gradient' || !onRandomizeGradient}
+                             aria-label="Randomize gradient"
+                             title="Randomize gradient"
+                             className={`inline-flex h-[34px] w-[34px] items-center justify-center rounded-[11px] border text-black/65 transition-colors ${
+                               config.backgroundStyle === 'gradient' && onRandomizeGradient
+                                 ? 'border-[#ea580c]/40 bg-[#fff7ed] hover:border-[#ea580c]/55 hover:text-black'
+                                 : 'cursor-not-allowed border-black/8 bg-black/[0.02] text-black/25'
+                             }`}
+                           >
+                             <Shuffle size={13} strokeWidth={2.2} />
+                           </button>
+                         )}
+                       </React.Fragment>
                      ))}
                    </div>
-                   {config.backgroundStyle === 'gradient' && (
-                     <button
-                       onClick={onRandomizeGradient}
-                       className="mt-3 inline-flex min-h-[34px] items-center gap-2 rounded-[11px] border border-black/10 bg-white px-3 text-[9px] font-bold uppercase tracking-[0.08em] text-black/75 transition-colors hover:border-black/15 hover:text-black"
-                     >
-                       <Sparkles size={12} />
-                       <span>Randomize</span>
-                     </button>
-                   )}
                  </div>
                )}
 
@@ -417,7 +416,9 @@ export const Console: React.FC<ConsoleProps> = ({
                      <button
                        key={color.id}
                        onClick={() => updateConfig('accentColor', color.hex)}
-                       className="h-[19px] w-[19px] rounded-full border border-black/10"
+                       className={`h-[19px] w-[19px] rounded-full border ${
+                         color.hex === '#ffffff' ? 'border-black/20 shadow-sm' : 'border-black/10'
+                       }`}
                        style={{ backgroundColor: color.hex }}
                        aria-label={`Accent ${color.hex}`}
                      />

@@ -75,7 +75,7 @@ export interface CardConfig {
   // Content
   showMetadata: boolean;
   authorName: string;
-  authorAvatar?: string; // Base64 data URL for author avatar
+  authorAvatar?: string; // Image URL or Base64 data URL for author avatar
   title: string;
 }
 

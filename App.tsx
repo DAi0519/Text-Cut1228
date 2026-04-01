@@ -64,7 +64,9 @@ const VALID_WARP_SHAPES = new Set<WarpShape>([
   "flat",
   "gravity",
 ]);
-const CONFIG_VERSION = 7;
+const CONFIG_VERSION = 9;
+const DEFAULT_AUTHOR_NAME = "DAi";
+const DEFAULT_AUTHOR_AVATAR = "/avatars/dai-avatar.png";
 const CARD_BASE_WIDTHS: Record<AspectRatio, number> = {
   [AspectRatio.PORTRAIT]: 380,
   [AspectRatio.SQUARE]: 480,
@@ -448,6 +450,28 @@ const createGradientBackgroundForConfig = (config: CardConfig) =>
     colorway: config.colorway,
   });
 
+const isLegacyClassicDefaultConfig = (raw: Partial<CardConfig>) =>
+  (raw.composition == null || raw.composition === "classic") &&
+  (raw.colorway == null || raw.colorway === "snow") &&
+  (raw.backgroundStyle == null || raw.backgroundStyle === "grid") &&
+  (raw.backgroundColor == null || raw.backgroundColor === "#f4f4f5") &&
+  (raw.textColor == null || raw.textColor === "#18181b") &&
+  (raw.accentColor == null || raw.accentColor === "#ea580c") &&
+  (raw.fontStyle == null || raw.fontStyle === FontStyle.SWEI) &&
+  (raw.aspectRatio == null || raw.aspectRatio === AspectRatio.PORTRAIT) &&
+  (raw.fontSize == null || raw.fontSize === 1.3) &&
+  (raw.cardScale == null || raw.cardScale === 1.35) &&
+  (raw.editorialTitleScale == null || raw.editorialTitleScale === 0.9) &&
+  (raw.showMetadata == null || raw.showMetadata === true) &&
+  (raw.title == null || raw.title === "") &&
+  (raw.authorName == null || raw.authorName === "");
+
+const isMissingAuthorIdentity = (raw: Partial<CardConfig>) =>
+  raw.authorName == null ||
+  raw.authorName.trim() === "" ||
+  raw.authorAvatar == null ||
+  raw.authorAvatar.trim() === "";
+
 const migrateConfig = (
   raw: Partial<CardConfig>,
   defaults: CardConfig,
@@ -480,8 +504,22 @@ const migrateConfig = (
     next.backgroundStyle = defaults.backgroundStyle;
   }
 
+  if (isLegacyClassicDefaultConfig(raw)) {
+    next.composition = defaults.composition;
+  }
+
   if (raw.gradientBackground == null && defaults.gradientBackground) {
     next.gradientBackground = defaults.gradientBackground;
+  }
+
+  if (isMissingAuthorIdentity(raw)) {
+    if (raw.authorName == null || raw.authorName.trim() === "") {
+      next.authorName = defaults.authorName;
+    }
+
+    if (raw.authorAvatar == null || raw.authorAvatar.trim() === "") {
+      next.authorAvatar = defaults.authorAvatar;
+    }
   }
 
   return normalizeConfig(next, defaults);
@@ -614,14 +652,15 @@ const App: React.FC = () => {
       textColor: "#18181b",
       accentColor: "#ea580c",
       fontStyle: FontStyle.SWEI,
-      composition: "classic",
+      composition: "editorial",
       aspectRatio: AspectRatio.PORTRAIT,
       fontSize: 1.3,
       cardScale: 1.35,
       editorialTitleScale: 0.9,
       showMetadata: true,
       title: "",
-      authorName: "",
+      authorName: DEFAULT_AUTHOR_NAME,
+      authorAvatar: DEFAULT_AUTHOR_AVATAR,
     } as CardConfig;
 
     try {
