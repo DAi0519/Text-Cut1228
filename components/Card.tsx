@@ -20,6 +20,7 @@ interface CardProps {
   imageConfig?: ImageConfig;
   editorialBrandLabel?: string;
   editorialBadgeText?: string;
+  editorialBackgroundImage?: string | null;
   index: number;
   total: number;
   config: CardConfig;
@@ -61,7 +62,7 @@ const DEFAULT_IMG_CONFIG: ImageConfig = {
   panY: 50
 };
 
-export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, layout = 'standard', image, imageConfig, editorialBrandLabel: propBrandLabel, editorialBadgeText: propBadgeText, index, total, config, onUpdate, onSplit, onEditChange, onAvatarUpload, showOverflowControl = true }, ref) => {
+export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, layout = 'standard', image, imageConfig, editorialBrandLabel: propBrandLabel, editorialBadgeText: propBadgeText, editorialBackgroundImage = null, index, total, config, onUpdate, onSplit, onEditChange, onAvatarUpload, showOverflowControl = true }, ref) => {
 
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(sectionTitle);
@@ -1463,6 +1464,10 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
   const renderEditorial = () => {
     const hasImage = !!editImage;
     const showEditorialGrid = config.backgroundStyle === 'grid';
+    const showEditorialGradient =
+      !hasImage &&
+      config.backgroundStyle === 'gradient' &&
+      !!editorialBackgroundImage;
     const titleScale = config.editorialTitleScale || 1.0;
     const secondaryOpacity = 0.4;
     const editorialAuthorName = config.authorName?.trim() || "Author";
@@ -1521,7 +1526,19 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
     return (
       <div className="flex flex-col h-full w-full relative overflow-hidden">
 
-        {/* Layer 1: Editorial grid background */}
+        {/* Layer 1: Shared editorial gradient background */}
+        {showEditorialGradient && (
+          <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
+            <img
+              src={editorialBackgroundImage || undefined}
+              alt=""
+              aria-hidden="true"
+              className="h-full w-full object-cover"
+            />
+          </div>
+        )}
+
+        {/* Layer 2: Editorial grid background */}
         {showEditorialGrid && (
           <div
             className="absolute inset-0 z-0 pointer-events-none"
@@ -1532,8 +1549,8 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
           />
         )}
 
-        {/* Layer 2: Subtle grain for non-grid solid backgrounds */}
-        {!hasImage && !showEditorialGrid && (
+        {/* Layer 3: Subtle grain for non-grid solid backgrounds */}
+        {!hasImage && !showEditorialGrid && !showEditorialGradient && (
           <div
             className={`absolute inset-0 z-[1] pointer-events-none ${isDark ? 'opacity-[0.06]' : 'opacity-[0.04]'}`}
             style={{
@@ -1543,7 +1560,7 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
           />
         )}
 
-        {/* Layer 3: Full-screen background image */}
+        {/* Layer 4: Full-screen background image */}
         {hasImage && (
           <div className="absolute inset-0 z-[2] overflow-hidden pointer-events-none">
             <img
@@ -1572,7 +1589,7 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
           </div>
         )}
 
-        {/* Layer 4: Snap guide lines — only visible during drag near center */}
+        {/* Layer 5: Snap guide lines — only visible during drag near center */}
         {(snapGuides.x || snapGuides.y) && (
           <div className="absolute inset-0 z-[3] pointer-events-none">
             {snapGuides.x && (
@@ -1584,7 +1601,7 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
           </div>
         )}
 
-        {/* Layer 5: Content — also handles image drag in edit mode */}
+        {/* Layer 6: Content — also handles image drag in edit mode */}
         <div
           className={`relative z-10 flex flex-col h-full w-full select-none ${isEditing && hasImage ? 'cursor-move' : ''}`}
           onMouseDown={(e) => {

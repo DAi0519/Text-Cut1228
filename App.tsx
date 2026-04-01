@@ -8,13 +8,20 @@ import {
   BackgroundStyle,
   CardSegment,
   FontStyle,
+  GradientBackgroundConfig,
+  GradientType,
   ImageConfig,
   ImageAspectRatio,
+  WarpShape,
 } from "./types";
 import { splitTextIntoCards } from "./services/geminiService";
 import { toPng } from "html-to-image";
 import { ArrowRight } from "lucide-react";
 import { hasAtomicMarkdownSyntax, isAtomicMarkdownBlock } from "./utils/textSplit";
+import {
+  createDefaultGradientBackground,
+  renderGradientBackgroundToDataUrl,
+} from "./utils/gradientBackground";
 
 const CAPACITY_REGEN_DEBOUNCE_MS = 700;
 const VALID_COMPOSITIONS = new Set(["classic", "technical", "editorial"]);
@@ -24,13 +31,40 @@ const VALID_ASPECT_RATIOS = new Set([
   AspectRatio.WIDE,
 ]);
 const VALID_COLORWAYS = new Set(["snow", "neon"]);
-const VALID_BACKGROUND_STYLES = new Set<BackgroundStyle>(["none", "grid"]);
+const VALID_BACKGROUND_STYLES = new Set<BackgroundStyle>([
+  "none",
+  "grid",
+  "gradient",
+]);
 const VALID_FONT_STYLES = new Set([
   FontStyle.CHILL,
   FontStyle.OPPO,
   FontStyle.SWEI,
 ]);
-const CONFIG_VERSION = 6;
+const VALID_GRADIENT_TYPES = new Set<GradientType>([
+  "simple",
+  "soft-bezier",
+  "mesh-static",
+  "mesh-grid",
+  "sharp-bezier",
+]);
+const VALID_WARP_SHAPES = new Set<WarpShape>([
+  "simplex-noise",
+  "circular",
+  "value-noise",
+  "worley-noise",
+  "fbm-noise",
+  "voronoi-noise",
+  "domain-warping",
+  "waves",
+  "smooth-noise",
+  "oval",
+  "rows",
+  "columns",
+  "flat",
+  "gravity",
+]);
+const CONFIG_VERSION = 7;
 const CARD_BASE_WIDTHS: Record<AspectRatio, number> = {
   [AspectRatio.PORTRAIT]: 380,
   [AspectRatio.SQUARE]: 480,
@@ -341,6 +375,79 @@ const createImageConfig = (
   panY: overrides?.panY ?? 50,
 });
 
+const normalizeGradientBackground = (
+  raw?: Partial<GradientBackgroundConfig> | null,
+) => {
+  if (!raw) return undefined;
+
+  const fallback = createDefaultGradientBackground();
+
+  const gradientType = VALID_GRADIENT_TYPES.has(raw.gradientType as GradientType)
+    ? (raw.gradientType as GradientType)
+    : "soft-bezier";
+  const warpShape = VALID_WARP_SHAPES.has(raw.warpShape as WarpShape)
+    ? (raw.warpShape as WarpShape)
+    : "smooth-noise";
+  const colors =
+    Array.isArray(raw.colors) &&
+    raw.colors.length >= 2 &&
+    raw.colors.every((color) => typeof color === "string")
+      ? raw.colors.slice(0, 10)
+      : fallback.colors;
+  const fallbackSeed =
+    typeof raw.seed === "number" && Number.isFinite(raw.seed)
+      ? raw.seed
+      : Math.floor(Math.random() * 99999);
+  const controlPoints =
+    Array.isArray(raw.controlPoints) &&
+    raw.controlPoints.length >= 2 &&
+    raw.controlPoints.every(
+      (point) =>
+        point &&
+        typeof point.x === "number" &&
+        Number.isFinite(point.x) &&
+        typeof point.y === "number" &&
+        Number.isFinite(point.y),
+    )
+      ? raw.controlPoints.slice(0, 10).map((point) => ({
+          x: clamp(point.x, 0, 1),
+          y: clamp(point.y, 0, 1),
+        }))
+      : fallback.controlPoints;
+
+  return {
+    gradientType,
+    warpShape,
+    warp:
+      typeof raw.warp === "number" && Number.isFinite(raw.warp)
+        ? clamp(raw.warp, 0, 100)
+        : 27,
+    warpSize:
+      typeof raw.warpSize === "number" && Number.isFinite(raw.warpSize)
+        ? clamp(raw.warpSize, 0, 100)
+        : 33,
+    noise:
+      typeof raw.noise === "number" && Number.isFinite(raw.noise)
+        ? clamp(raw.noise, 0, 100)
+        : 53,
+    seed: fallbackSeed,
+    colors,
+    controlPoints,
+  } satisfies GradientBackgroundConfig;
+};
+
+const usesEditorialGradient = (
+  config: Pick<CardConfig, "composition" | "backgroundStyle">,
+) => config.composition === "editorial" && config.backgroundStyle === "gradient";
+
+const createGradientBackgroundForConfig = (config: CardConfig) =>
+  createDefaultGradientBackground({
+    backgroundColor: config.backgroundColor,
+    textColor: config.textColor,
+    accentColor: config.accentColor,
+    colorway: config.colorway,
+  });
+
 const migrateConfig = (
   raw: Partial<CardConfig>,
   defaults: CardConfig,
@@ -373,6 +480,10 @@ const migrateConfig = (
     next.backgroundStyle = defaults.backgroundStyle;
   }
 
+  if (raw.gradientBackground == null && defaults.gradientBackground) {
+    next.gradientBackground = defaults.gradientBackground;
+  }
+
   return normalizeConfig(next, defaults);
 };
 
@@ -395,6 +506,7 @@ const normalizeConfig = (
     backgroundStyle: VALID_BACKGROUND_STYLES.has(merged.backgroundStyle)
       ? merged.backgroundStyle
       : defaults.backgroundStyle,
+    gradientBackground: normalizeGradientBackground(merged.gradientBackground),
     fontStyle: VALID_FONT_STYLES.has(merged.fontStyle)
       ? merged.fontStyle
       : defaults.fontStyle,
@@ -490,6 +602,9 @@ const App: React.FC = () => {
   const [cropModalState, setCropModalState] = useState<CropModalState | null>(
     null,
   );
+  const [editorialBackgroundImage, setEditorialBackgroundImage] = useState<
+    string | null
+  >(null);
 
   const [config, setConfig] = useState<CardConfig>(() => {
     const defaultConfig = {
@@ -1026,8 +1141,34 @@ const App: React.FC = () => {
     setPendingOverflowNormalization(false);
     setOverflowNormalizationRevision(0);
     setDismissedCapacitySignature(null);
-    await runGeneration("manual");
-  }, [inputText, runGeneration]);
+    const nextConfig = usesEditorialGradient(config)
+      ? {
+          ...config,
+          gradientBackground: createGradientBackgroundForConfig(config),
+        }
+      : config;
+
+    if (nextConfig !== config) {
+      setConfig(nextConfig);
+    }
+
+    await runGeneration(
+      "manual",
+      nextConfig,
+      getCapacitySignature(nextConfig),
+    );
+  }, [config, inputText, runGeneration]);
+
+  const handleRandomizeGradient = useCallback(() => {
+    setConfig((prev) =>
+      usesEditorialGradient(prev)
+        ? {
+            ...prev,
+            gradientBackground: createGradientBackgroundForConfig(prev),
+          }
+        : prev,
+    );
+  }, []);
 
   const handleRegenerateForCapacityChange = useCallback(async () => {
     if (
@@ -1730,6 +1871,40 @@ const App: React.FC = () => {
 
   const activeCardWidth = getCardWidth(config.aspectRatio, config.cardScale);
   const activeCardHeight = getCardHeight(config.aspectRatio, config.cardScale);
+
+  useEffect(() => {
+    if (!usesEditorialGradient(config)) {
+      setEditorialBackgroundImage(null);
+      return;
+    }
+
+    if (!config.gradientBackground) {
+      setConfig((prev) =>
+        usesEditorialGradient(prev)
+          ? {
+              ...prev,
+              gradientBackground: createGradientBackgroundForConfig(prev),
+            }
+          : prev,
+      );
+      return;
+    }
+
+    const dataUrl = renderGradientBackgroundToDataUrl(
+      config.gradientBackground,
+      activeCardWidth,
+      activeCardHeight,
+    );
+    setEditorialBackgroundImage(dataUrl);
+  }, [
+    activeCardHeight,
+    activeCardWidth,
+    config.backgroundStyle,
+    config.composition,
+    config.gradientBackground,
+    setConfig,
+  ]);
+
   const bottomDockSafeArea = isConsoleCollapsed
     ? CONSOLE_COLLAPSED_SAFE_AREA
     : consoleHeight + 48;
@@ -1771,6 +1946,7 @@ const App: React.FC = () => {
     isProcessing,
     onProcess: handleProcess,
     onDownloadAll: handleDownloadAll,
+    onRandomizeGradient: handleRandomizeGradient,
     hasContent,
     zoomLevel,
     setZoomLevel,
@@ -2004,6 +2180,7 @@ const App: React.FC = () => {
                             imageConfig={segment.imageConfig}
                             editorialBrandLabel={segment.editorialBrandLabel}
                             editorialBadgeText={segment.editorialBadgeText}
+                            editorialBackgroundImage={editorialBackgroundImage}
                             index={idx}
                             total={cards.length}
                             config={config}

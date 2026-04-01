@@ -14,6 +14,7 @@ interface ConsoleProps {
   isProcessing: boolean;
   onProcess: () => void;
   onDownloadAll: () => void;
+  onRandomizeGradient?: () => void;
   hasContent: boolean;
   zoomLevel: number;
   setZoomLevel: React.Dispatch<React.SetStateAction<number>>;
@@ -64,7 +65,7 @@ export type ConsoleTabId = TabId;
 
 export const Console: React.FC<ConsoleProps> = ({
   inputText, setInputText, config, setConfig, isProcessing, onProcess, 
-  onDownloadAll, hasContent, zoomLevel, setZoomLevel,
+  onDownloadAll, onRandomizeGradient, hasContent, zoomLevel, setZoomLevel,
   activeCardIndex, editingIndex,
   onToggleLayout, onStartEdit, onSaveEdit, onCancelEdit, onTriggerImage,
   onTriggerAvatarUpload, onDownload, onToggleHighlight,
@@ -79,7 +80,6 @@ export const Console: React.FC<ConsoleProps> = ({
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [showFrameSizeMenu, setShowFrameSizeMenu] = useState(false);
   const exportMenuRef = useRef<HTMLDivElement>(null);
-  const showExportMenuRef = useRef(showExportMenu);
   const frameSizeMenuRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -196,6 +196,7 @@ export const Console: React.FC<ConsoleProps> = ({
   const backgroundStyles: { value: BackgroundStyle; label: string }[] = [
     { value: 'none', label: 'None' },
     { value: 'grid', label: 'Grid' },
+    { value: 'gradient', label: 'Gradient' },
   ];
 
   const positionLabels: Record<string, string> = { top: 'Top', bottom: 'Bottom', left: 'Left', right: 'Right' };
@@ -375,13 +376,31 @@ export const Console: React.FC<ConsoleProps> = ({
                      {backgroundStyles.map((background) => (
                        <button
                          key={background.value}
-                         onClick={() => updateConfig('backgroundStyle', background.value)}
+                         onClick={() => {
+                           if (
+                             background.value === 'gradient' &&
+                             config.backgroundStyle === 'gradient'
+                           ) {
+                             onRandomizeGradient?.();
+                             return;
+                           }
+                           updateConfig('backgroundStyle', background.value);
+                         }}
                          className={`${chipClass} ${config.backgroundStyle === background.value ? activeChipClass : ''}`}
                        >
                          {background.label}
                        </button>
                      ))}
                    </div>
+                   {config.backgroundStyle === 'gradient' && (
+                     <button
+                       onClick={onRandomizeGradient}
+                       className="mt-3 inline-flex min-h-[34px] items-center gap-2 rounded-[11px] border border-black/10 bg-white px-3 text-[9px] font-bold uppercase tracking-[0.08em] text-black/75 transition-colors hover:border-black/15 hover:text-black"
+                     >
+                       <Sparkles size={12} />
+                       <span>Randomize</span>
+                     </button>
+                   )}
                  </div>
                )}
 

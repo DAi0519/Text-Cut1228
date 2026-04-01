@@ -13,16 +13,54 @@ export enum AspectRatio {
 }
 
 export type Colorway = 'snow' | 'neon';
-export type BackgroundStyle = 'none' | 'grid';
+export type BackgroundStyle = 'none' | 'grid' | 'gradient';
 
 export type Composition = 'classic' | 'technical' | 'editorial';
 export type ImageAspectRatio = '1:1' | '4:3' | '16:9' | '3:4' | '21:9' | '9:21' | '9:16';
+export type GradientType =
+  | 'simple'
+  | 'soft-bezier'
+  | 'mesh-static'
+  | 'mesh-grid'
+  | 'sharp-bezier';
+export type WarpShape =
+  | 'simplex-noise'
+  | 'circular'
+  | 'value-noise'
+  | 'worley-noise'
+  | 'fbm-noise'
+  | 'voronoi-noise'
+  | 'domain-warping'
+  | 'waves'
+  | 'smooth-noise'
+  | 'oval'
+  | 'rows'
+  | 'columns'
+  | 'flat'
+  | 'gravity';
+
+export interface GradientControlPoint {
+  x: number;
+  y: number;
+}
+
+export interface GradientBackgroundConfig {
+  gradientType: GradientType;
+  warpShape: WarpShape;
+  warp: number;
+  warpSize: number;
+  noise: number;
+  seed: number;
+  colors: string[];
+  controlPoints: GradientControlPoint[];
+}
 
 export interface CardConfig {
   // Visuals
   colorway: Colorway;
   backgroundStyle: BackgroundStyle;
   backgroundColor: string;
+  gradientBackground?: GradientBackgroundConfig;
   textColor: string;
   accentColor: string;
   fontStyle: FontStyle;
