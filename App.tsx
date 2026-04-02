@@ -81,6 +81,50 @@ const canDeleteCardAtIndex = (cards: CardSegment[], index: number) =>
   index < cards.length - 1 &&
   cards[index]?.layout !== "cover";
 
+const createRoundedRectPath = (
+  context: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  radius: number,
+) => {
+  const safeRadius = Math.max(0, Math.min(radius, width / 2, height / 2));
+  context.beginPath();
+  context.moveTo(safeRadius, 0);
+  context.lineTo(width - safeRadius, 0);
+  context.quadraticCurveTo(width, 0, width, safeRadius);
+  context.lineTo(width, height - safeRadius);
+  context.quadraticCurveTo(width, height, width - safeRadius, height);
+  context.lineTo(safeRadius, height);
+  context.quadraticCurveTo(0, height, 0, height - safeRadius);
+  context.lineTo(0, safeRadius);
+  context.quadraticCurveTo(0, 0, safeRadius, 0);
+  context.closePath();
+};
+
+const applyTransparentRoundedCorners = async (
+  dataUrl: string,
+  exportWidth: number,
+  exportHeight: number,
+  borderRadius: number,
+) => {
+  const image = await loadImage(dataUrl);
+  const canvas = document.createElement("canvas");
+  canvas.width = image.naturalWidth || exportWidth;
+  canvas.height = image.naturalHeight || exportHeight;
+
+  const context = canvas.getContext("2d");
+  if (!context) {
+    throw new Error("Failed to create export canvas");
+  }
+
+  const radiusScale = Math.min(canvas.width / exportWidth, canvas.height / exportHeight);
+  createRoundedRectPath(context, canvas.width, canvas.height, borderRadius * radiusScale);
+  context.clip();
+  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+  return canvas.toDataURL("image/png");
+};
+
 /* ─────────────────────────────────────────────────────────
  * PANEL CARD STORYBOARD
  *
@@ -1849,8 +1893,10 @@ const App: React.FC = () => {
       await new Promise((resolve) => setTimeout(resolve, 50));
       const width = el.offsetWidth;
       const height = el.offsetHeight;
+      const computedStyle = window.getComputedStyle(el);
+      const borderRadius = Number.parseFloat(computedStyle.borderTopLeftRadius) || 0;
 
-      const dataUrl = await toPng(el, {
+      const rawDataUrl = await toPng(el, {
         cacheBust: true,
         pixelRatio: 3,
         width: width,
@@ -1876,6 +1922,10 @@ const App: React.FC = () => {
           mode: "cors",
         },
       });
+      const dataUrl =
+        borderRadius > 0
+          ? await applyTransparentRoundedCorners(rawDataUrl, width, height, borderRadius)
+          : rawDataUrl;
       const link = document.createElement("a");
       link.download = `card-${String(index + 1).padStart(2, "0")}.png`;
       link.href = dataUrl;
