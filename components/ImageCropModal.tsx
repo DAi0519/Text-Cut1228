@@ -1,3 +1,10 @@
+/**
+ * [INPUT]: 依赖 ../types 的 ImageAspectRatio，依赖 lucide-react 的 X 图标
+ * [OUTPUT]: 对外提供 ImageCropModal 组件；回调输出 { scale, panX, panY } 写入 ImageConfig
+ * [POS]: components/ 的按需弹出 Modal；由 App.tsx 在用户触发图片编辑时挂载，
+ *        裁剪结果通过 onConfirm 回调传递给 Card.updateImageConfig()
+ * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+ */
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ImageAspectRatio } from "../types";
 import { X } from "lucide-react";

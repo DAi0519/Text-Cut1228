@@ -1,4 +1,11 @@
-
+/**
+ * [INPUT]: 无外部依赖（纯类型声明文件）
+ * [OUTPUT]: 对外提供所有共享枚举与接口：FontStyle / AspectRatio / Colorway / BackgroundStyle /
+ *           Composition / GradientType / WarpShape / GradientBackgroundConfig / CardConfig /
+ *           ImageConfig / CardSegment / SplitResponse / Preset / ImageAspectRatio
+ * [POS]: 全项目类型系统的单一真相源，被所有业务模块引用；禁止在此处放置运行时逻辑
+ * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+ */
 
 export enum FontStyle {
   CHILL = 'Chill',

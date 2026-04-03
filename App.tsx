@@ -1,3 +1,13 @@
+/**
+ * [INPUT]: 依赖 components/{Console,Card,ImageCropModal} 的 UI 组件，
+ *          依赖 services/geminiService 的 splitTextIntoCards，
+ *          依赖 utils/{textSplit,gradientBackground} 的解析与渲染工具，
+ *          依赖 types 的 CardConfig/CardSegment/AspectRatio 等全部核心类型
+ * [OUTPUT]: 默认导出 App 组件（React 应用根节点，持有全局状态）
+ * [POS]: 全应用的状态管理中枢与布局编排者；CardSegment[] / CardConfig 均源于此；
+ *        不含任何领域算法，算法委托给 services/ 和 utils/
+ * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+ */
 import React, { useState, useRef, useCallback, useEffect } from "react";
 import { Console, type ConsoleTabId } from "./components/Console";
 import { Card, CardHandle, OverflowSplitResult } from "./components/Card";

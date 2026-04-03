@@ -1,3 +1,11 @@
+/**
+ * [INPUT]: 依赖 @google/genai 的 GoogleGenAI SDK，依赖 ../types 的 SplitResponse/CardSegment/CardConfig/AspectRatio，
+ *          依赖 ../utils/textSplit 的 carvePrefixForRebalance / hasAtomicMarkdownSyntax 等工具
+ * [OUTPUT]: 对外提供 splitTextIntoCards(text, config): Promise<SplitResponse>
+ * [POS]: services/ 的唯一成员，也是全项目与外部 AI API 交互的唯一边界；
+ *        内含容量计算、占用率估算、Markdown 原子块保护与后处理，对 App.tsx 完全透明
+ * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+ */
 import { GoogleGenAI, Type } from "@google/genai";
 import { SplitResponse, CardSegment, CardConfig, AspectRatio } from "../types";
 import {

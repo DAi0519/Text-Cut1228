@@ -1,3 +1,11 @@
+/**
+ * [INPUT]: 依赖 ../types 的 CardConfig/AspectRatio/FontStyle/Preset/Composition/ImageConfig/BackgroundStyle，
+ *          依赖 lucide-react 的图标集
+ * [OUTPUT]: 对外提供 Console 组件、ConsoleTabId 类型（'input'|'edit'|'style'|'image'）
+ * [POS]: components/ 的全局控制面板，App.tsx 的右侧/底部工具区；
+ *        聚合所有配置入口（AI 触发、样式切换、下载），内含 StylePanel 作为 Style Tab 内容
+ * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+ */
 import React, { useState, useEffect, useRef } from 'react';
 import { CardConfig, AspectRatio, FontStyle, Preset, Composition, ImageConfig, ImageAspectRatio, BackgroundStyle } from '../types';
 import { 

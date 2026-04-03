@@ -1,3 +1,10 @@
+/**
+ * [INPUT]: 依赖 ../types 的 CardConfig/GradientBackgroundConfig/GradientControlPoint/GradientType/WarpShape/Colorway
+ * [OUTPUT]: 对外提供 createDefaultGradientBackground() / renderGradientBackgroundToDataUrl(config, w, h) / getGradientColors(config)
+ * [POS]: utils/ 的图形渲染引擎；以 WebGL Fragment Shader (GLSL) 实现 GPU 加速渐变，
+ *        Canvas 2D 作降级方案；被 App.tsx 和 Card.tsx 在背景渲染时调用
+ * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+ */
 import {
   CardConfig,
   GradientBackgroundConfig,

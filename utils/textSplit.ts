@@ -1,8 +1,11 @@
 /**
- * Shared text-splitting primitives used by geminiService, App, and Card.
- *
- * Hierarchy (coarse → fine):
- *   paragraphs  →  sentences  →  clauses  →  nearest punctuation
+ * [INPUT]: 无外部依赖（纯函数模块，零副作用）
+ * [OUTPUT]: 对外提供 splitIntoSentences / splitIntoClauses / splitAtNearestPunctuation /
+ *           splitFencedMarkdownBlock / isAtomicMarkdownBlock / hasAtomicMarkdownSyntax /
+ *           carvePrefixForRebalance / splitIntoMarkdownBlocks
+ * [POS]: utils/ 的文字解析引擎；被 services/geminiService 和 components/Card 双重消费；
+ *        切分层次：段落 → 句子 → 子句 → 最近标点，内建 CJK 标点识别与 Markdown 原子块保护
+ * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 // ── Sentence / clause tokenisers ────────────────────────────

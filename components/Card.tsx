@@ -1,3 +1,11 @@
+/**
+ * [INPUT]: 依赖 react-markdown 的 Markdown 渲染，依赖 ../types 的 CardConfig/CardSegment/ImageConfig/Composition，
+ *          依赖 ../utils/textSplit 的 carvePrefixForRebalance / splitIntoSentences 等切分工具
+ * [OUTPUT]: 对外提供 Card 组件 (forwardRef)、CardHandle 接口（命令式 API）、OverflowSplitResult 接口
+ * [POS]: components/ 的核心渲染单元；一张 Card 对应一个 CardSegment；
+ *        通过 CardHandle 向 App.tsx 暴露编辑与溢出处理能力，避免状态下沉
+ * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+ */
 import React, { useState, useEffect, useRef, useLayoutEffect, forwardRef, useImperativeHandle } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { CardConfig, AspectRatio, CardSegment, FontStyle, Composition, ImageConfig } from '../types';

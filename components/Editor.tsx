@@ -1,3 +1,10 @@
+/**
+ * [INPUT]: 依赖 lucide-react 的 Type/Grid/AlignLeft/X 图标，依赖 ../types 的 CardConfig/Preset
+ * [OUTPUT]: 对外提供 Editor 组件（长文输入区 + 构图预设选择器）
+ * [POS]: components/ 的用户入口组件，位于 App.tsx 主舞台顶部 Hero 区；
+ *        仅负责输入捕获与预设触发，不持有任何文字处理或 AI 调用逻辑
+ * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+ */
 import React from 'react';
 import { Type, Grid, AlignLeft, X } from 'lucide-react';
 import { CardConfig, Preset } from '../types';

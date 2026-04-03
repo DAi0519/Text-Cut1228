@@ -1,3 +1,10 @@
+/**
+ * [INPUT]: 依赖 ../types 的 CardConfig/AspectRatio/FontStyle，依赖 lucide-react 的图标
+ * [OUTPUT]: 对外提供 StylePanel 组件（字体/字号/比例/背景/渐变参数控制侧栏）
+ * [POS]: components/ 的样式配置子面板，作为 Console.tsx Style Tab 的内容区渲染；
+ *        所有变更通过 onConfigChange 回调向上提升至 App.tsx 全局 config 状态
+ * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+ */
 import React from 'react';
 import { CardConfig, AspectRatio, FontStyle } from '../types';
 import { X, Crop, Type, Scaling } from 'lucide-react';
