@@ -1,5 +1,7 @@
 # TextCuts — AI 驱动的长文切片卡片编辑器
 
+> 最近更新: editorial 构图标题行高统一为 `1.25`，用于改善多行中文标题的呼吸感与可读性
+
 React 19 + TypeScript + Vite + Tailwind CSS (CDN) + Google Gemini AI + html-to-image
 
 ## 一句话定位
@@ -44,6 +46,11 @@ html-to-image → PNG 导出 (含真圆角 Canvas Mask)
 | Composition | classic / technical / editorial |
 | Colorway | snow (浅) / neon (深) |
 | Background | none / grid / gradient (5类型 × 14变形) |
+
+## 最近排版约定
+
+- `editorial` 构图的标题行高统一使用 `1.25`
+- 该约定同时作用于封面卡与标准卡标题，避免同一主题下多行标题松紧不一致
 
 ## 关键约束
 

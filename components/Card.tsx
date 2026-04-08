@@ -8,6 +8,129 @@
  */
 import React, { useState, useEffect, useRef, useLayoutEffect, forwardRef, useImperativeHandle } from 'react';
 import ReactMarkdown from 'react-markdown';
+import mermaid from 'mermaid';
+
+let mermaidReady = false;
+const ensureMermaidInitialized = () => {
+  if (mermaidReady) return;
+  mermaidReady = true;
+  mermaid.initialize({ startOnLoad: false, theme: 'base', securityLevel: 'loose',
+    themeVariables: { fontFamily: 'inherit', fontSize: '13px' } });
+};
+
+const waitForNextFrame = () => new Promise<void>(r => requestAnimationFrame(() => r()));
+
+// Module-level SVG cache: key = code|isDark|accentColor|textColor
+// Once a diagram is rendered it's stored here and restored synchronously on
+// any subsequent mount — no async gap, no opacity animation, no flicker.
+const mermaidSvgCache = new Map<string, string>();
+
+function applyMermaidStyles(
+  svgEl: SVGSVGElement,
+  accentColor: string, isDark: boolean, textColor: string
+) {
+  svgEl.style.maxWidth = '100%';
+  svgEl.style.height = 'auto';
+  svgEl.removeAttribute('width');
+  svgEl.removeAttribute('height');
+
+  const hex = accentColor.replace('#', '');
+  const r = parseInt(hex.slice(0, 2), 16);
+  const g = parseInt(hex.slice(2, 4), 16);
+  const b = parseInt(hex.slice(4, 6), 16);
+  const nodeFill  = `rgba(${r},${g},${b},0.06)`;
+  const edgeColor = isDark ? 'rgba(255,255,255,0.28)' : 'rgba(0,0,0,0.20)';
+
+  svgEl.querySelectorAll<SVGElement>(
+    'rect.actor, .node rect, .node circle, .node ellipse, .node polygon, .node path'
+  ).forEach(el => {
+    el.setAttribute('stroke', accentColor); el.style.stroke = accentColor;
+    el.setAttribute('fill', nodeFill);      el.style.fill   = nodeFill;
+  });
+  svgEl.querySelectorAll<SVGElement>(
+    'line, .actor-line, .messageLine0, .messageLine1, .edgePath path, .flowchart-link, path.path'
+  ).forEach(el => { el.setAttribute('stroke', edgeColor); el.style.stroke = edgeColor; });
+  svgEl.querySelectorAll<SVGElement>('text, tspan').forEach(el => {
+    el.setAttribute('fill', textColor); el.style.fill = textColor;
+    el.style.fillOpacity = '1'; el.style.opacity = '1';
+  });
+}
+
+interface MermaidBlockProps {
+  code: string; isDark: boolean; accentColor: string; textColor: string; backgroundColor: string;
+}
+
+const MermaidBlock: React.FC<MermaidBlockProps> = React.memo(({ code, isDark, accentColor, textColor }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [hasError, setHasError] = useState(false);
+  const renderRunRef = useRef(0);
+  const cacheKey = `${code}|${isDark}|${accentColor}|${textColor}`;
+
+  // SYNCHRONOUS restore before first paint — zero-flash on any remount
+  useLayoutEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const cached = mermaidSvgCache.get(cacheKey);
+    if (cached) {
+      el.innerHTML = cached;
+      const svg = el.querySelector('svg') as SVGSVGElement | null;
+      if (svg) applyMermaidStyles(svg, accentColor, isDark, textColor);
+      el.style.transition = 'none';
+      el.style.opacity = '1';
+    } else {
+      el.style.opacity = '0';
+    }
+  }, [cacheKey]);
+
+  useEffect(() => {
+    // Cache hit already handled synchronously above — nothing to do
+    if (mermaidSvgCache.has(cacheKey)) return;
+
+    let cancelled = false;
+    const run = ++renderRunRef.current;
+    const gone = () => cancelled || renderRunRef.current !== run;
+    const id = `mermaid-${Math.random().toString(36).slice(2)}`;
+    ensureMermaidInitialized();
+    setHasError(false);
+
+    (async () => {
+      try {
+        const { svg } = await mermaid.render(id, code);
+        if (gone()) return;
+        mermaidSvgCache.set(cacheKey, svg);        // cache raw SVG
+        const el = containerRef.current;
+        if (!el) return;
+        el.innerHTML = svg;
+        const svgEl = el.querySelector('svg') as SVGSVGElement | null;
+        if (svgEl) applyMermaidStyles(svgEl, accentColor, isDark, textColor);
+        await waitForNextFrame(); if (gone()) return;
+        await waitForNextFrame(); if (gone()) return;
+        el.style.transition = 'opacity 0.18s ease';
+        el.style.opacity = '1';
+      } catch { if (!gone()) setHasError(true); }
+    })();
+
+    return () => { cancelled = true; };
+  }, [cacheKey]);
+
+  if (hasError) return (
+    <div className="my-3 rounded-xl px-4 py-3 font-mono text-[0.76em] border border-red-400/40 text-red-400">
+      Mermaid parse error
+    </div>
+  );
+
+  return (
+    <div
+      ref={containerRef}
+      className="my-4 w-full flex justify-center overflow-hidden rounded-xl [&>svg]:max-w-full [&>svg]:h-auto"
+      style={{
+        padding: '16px 12px',
+        background: isDark ? '#1e1e20' : '#f4f4f5',
+        border: `1px solid ${isDark ? '#2e2e32' : '#e4e4e7'}`,
+      }}
+    />
+  );
+});
 import { CardConfig, AspectRatio, CardSegment, FontStyle, Composition, ImageConfig } from '../types';
 import {
   carvePrefixForRebalance,
@@ -822,6 +945,7 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
     !isCover &&
     !isEditing &&
     !editImage &&
+    !hasVisibleTitle &&
     config.composition !== 'technical' &&
     bodyOccupancy > 0 &&
     bodyOccupancy < 0.52;
@@ -1031,7 +1155,21 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
                   ? (child.props as { className?: string })
                   : undefined;
               const languageMatch = childProps?.className?.match(/language-([\w-]+)/);
-              const languageLabel = (languageMatch?.[1] || "text").toUpperCase();
+              const lang = languageMatch?.[1];
+              const languageLabel = (lang || "text").toUpperCase();
+
+              if (lang === 'mermaid') {
+                const codeText = React.isValidElement(child) ? String((child.props as any).children ?? '') : '';
+                return (
+                  <MermaidBlock
+                    code={codeText.trim()}
+                    isDark={isDark}
+                    accentColor={config.accentColor}
+                    textColor={config.textColor}
+                    backgroundColor={config.backgroundColor}
+                  />
+                );
+              }
 
               return (
                 <div
@@ -1479,7 +1617,7 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
     const titleScale = config.editorialTitleScale || 1.0;
     const secondaryOpacity = 0.4;
     const editorialAuthorName = config.authorName?.trim() || "Author";
-    const editorialTitleLineHeight = 1.05;
+    const editorialTitleLineHeight = 1.25;
 
     // Brand name — plain text, no "©"
     const brandName = propBrandLabel || config.title || config.authorName || 'Project';

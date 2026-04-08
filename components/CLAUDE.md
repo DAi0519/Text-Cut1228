@@ -1,11 +1,13 @@
 # components/
 > L2 | 父级: /CLAUDE.md
 
+> 最近更新: `Card.tsx` 中 `editorial` 构图标题行高统一为 `1.25`，封面卡与标准卡保持一致
+
 UI 组件层 — 负责渲染、交互与用户输入捕获。无业务逻辑，状态向上提升至 App.tsx。
 
 ## 成员清单
 
-Card.tsx: 单张卡片渲染器，支持 standard/cover 双布局、内联编辑、图片管理、溢出检测与重分配；通过 forwardRef + useImperativeHandle 向父级暴露命令式 API (CardHandle)
+Card.tsx: 单张卡片渲染器，支持 standard/cover 双布局、内联编辑、图片管理、溢出检测与重分配；`editorial` 构图标题使用统一行高常量 `1.25`；通过 forwardRef + useImperativeHandle 向父级暴露命令式 API (CardHandle)
 
 Console.tsx: 全局控制面板，包含 AI 处理触发、配置切换、下载操作；以 ConsoleTabId 管理四个 Tab (input / edit / style / image)
 
