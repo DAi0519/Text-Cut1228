@@ -1,13 +1,15 @@
 # utils/
 > L2 | 父级: /CLAUDE.md
 
+> 最近更新: `gradientBackground.ts` 在 neon 模式下默认三色渐变改为 `主题色 / 深灰 / 更深的浅黑`
+
 纯函数工具层 — 零副作用，零外部依赖，可独立测试。两个模块各司其职：文字解析 vs 图形渲染。
 
 ## 成员清单
 
 textSplit.ts: 多粒度文字切分工具集；提供 段落→句子→子句→标点 四层分割粒度，内建 CJK 标点识别与 Markdown 原子块保护；被 geminiService 和 Card 两处消费
 
-gradientBackground.ts: WebGL 渐变背景渲染引擎；以 GLSL Fragment Shader 实现 5 种渐变类型 × 14 种 Warp 变形；提供随机生成、DataURL 输出与颜色提取三个公开接口；WebGL 不可用时降级为 Canvas 2D
+gradientBackground.ts: WebGL 渐变背景渲染引擎；以 GLSL Fragment Shader 实现 5 种渐变类型 × 14 种 Warp 变形；提供随机生成、DataURL 输出与颜色提取三个公开接口；neon 默认三色为 `accent / 深灰 / 更深浅黑`；WebGL 不可用时降级为 Canvas 2D
 
 ## 导出接口速览
 

@@ -33,26 +33,59 @@ function applyMermaidStyles(
   svgEl.style.height = 'auto';
   svgEl.removeAttribute('width');
   svgEl.removeAttribute('height');
+  svgEl.style.background = 'transparent';
 
   const hex = accentColor.replace('#', '');
   const r = parseInt(hex.slice(0, 2), 16);
   const g = parseInt(hex.slice(2, 4), 16);
   const b = parseInt(hex.slice(4, 6), 16);
-  const nodeFill  = `rgba(${r},${g},${b},0.06)`;
-  const edgeColor = isDark ? 'rgba(255,255,255,0.28)' : 'rgba(0,0,0,0.20)';
+  const nodeFill = isDark
+    ? `rgba(${r},${g},${b},0.14)`
+    : `rgba(${r},${g},${b},0.06)`;
+  const edgeColor = isDark ? 'rgba(248,250,252,0.68)' : 'rgba(0,0,0,0.20)';
+  const labelColor = isDark ? '#f8fafc' : textColor;
+  const accentStroke = isDark ? `rgba(${r},${g},${b},0.96)` : accentColor;
+  const accentGlow = isDark ? `drop-shadow(0 0 8px rgba(${r},${g},${b},0.20))` : 'none';
+
+  svgEl.querySelectorAll<SVGElement>('.node, .actor, .labelBox, .cluster').forEach(el => {
+    el.style.filter = accentGlow;
+  });
 
   svgEl.querySelectorAll<SVGElement>(
     'rect.actor, .node rect, .node circle, .node ellipse, .node polygon, .node path'
   ).forEach(el => {
-    el.setAttribute('stroke', accentColor); el.style.stroke = accentColor;
-    el.setAttribute('fill', nodeFill);      el.style.fill   = nodeFill;
+    el.setAttribute('stroke', accentStroke); el.style.stroke = accentStroke;
+    el.setAttribute('fill', nodeFill);       el.style.fill = nodeFill;
+    el.style.strokeWidth = isDark ? '1.5px' : '1.1px';
   });
   svgEl.querySelectorAll<SVGElement>(
-    'line, .actor-line, .messageLine0, .messageLine1, .edgePath path, .flowchart-link, path.path'
-  ).forEach(el => { el.setAttribute('stroke', edgeColor); el.style.stroke = edgeColor; });
+    'line, .actor-line, .messageLine0, .messageLine1, .loopLine, .edgePath path, .flowchart-link, path.path'
+  ).forEach(el => {
+    el.setAttribute('stroke', edgeColor);
+    el.style.stroke = edgeColor;
+    el.style.strokeWidth = isDark ? '1.35px' : '1px';
+  });
+  svgEl.querySelectorAll<SVGElement>('marker path, .arrowheadPath, .marker, .flowchart-linkLS, .flowchart-linkLE').forEach(el => {
+    el.setAttribute('fill', edgeColor);
+    el.style.fill = edgeColor;
+    el.setAttribute('stroke', edgeColor);
+    el.style.stroke = edgeColor;
+  });
+  svgEl.querySelectorAll<SVGElement>('.labelBox, .sequenceNumber').forEach(el => {
+    if (isDark) {
+      el.setAttribute('fill', 'rgba(19,24,31,0.92)');
+      el.style.fill = 'rgba(19,24,31,0.92)';
+    }
+    el.setAttribute('stroke', accentStroke);
+    el.style.stroke = accentStroke;
+    el.style.strokeWidth = isDark ? '1.2px' : '1px';
+  });
   svgEl.querySelectorAll<SVGElement>('text, tspan').forEach(el => {
-    el.setAttribute('fill', textColor); el.style.fill = textColor;
+    el.setAttribute('fill', labelColor); el.style.fill = labelColor;
     el.style.fillOpacity = '1'; el.style.opacity = '1';
+    if (isDark) {
+      el.style.fontWeight = '600';
+    }
   });
 }
 
@@ -65,6 +98,10 @@ const MermaidBlock: React.FC<MermaidBlockProps> = React.memo(({ code, isDark, ac
   const [hasError, setHasError] = useState(false);
   const renderRunRef = useRef(0);
   const cacheKey = `${code}|${isDark}|${accentColor}|${textColor}`;
+  const accentHex = accentColor.replace('#', '').padEnd(6, '0');
+  const accentR = parseInt(accentHex.slice(0, 2), 16);
+  const accentG = parseInt(accentHex.slice(2, 4), 16);
+  const accentB = parseInt(accentHex.slice(4, 6), 16);
 
   // SYNCHRONOUS restore before first paint — zero-flash on any remount
   useLayoutEffect(() => {
@@ -125,8 +162,11 @@ const MermaidBlock: React.FC<MermaidBlockProps> = React.memo(({ code, isDark, ac
       className="my-4 w-full flex justify-center overflow-hidden rounded-xl [&>svg]:max-w-full [&>svg]:h-auto"
       style={{
         padding: '16px 12px',
-        background: isDark ? '#1e1e20' : '#f4f4f5',
-        border: `1px solid ${isDark ? '#2e2e32' : '#e4e4e7'}`,
+        background: isDark ? 'rgba(15,16,20,0.88)' : '#f4f4f5',
+        border: `1px solid ${isDark ? 'rgba(255,255,255,0.08)' : '#e4e4e7'}`,
+        boxShadow: isDark
+          ? `inset 0 1px 0 rgba(255,255,255,0.03), 0 0 0 1px rgba(${accentR},${accentG},${accentB},0.06)`
+          : 'none',
       }}
     />
   );
@@ -753,7 +793,7 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
       const { clientHeight } = contentRef.current;
       const { scrollHeight } = contentMeasureRef.current;
       setBodyOccupancy(clientHeight > 0 ? scrollHeight / clientHeight : 0);
-      setIsOverflowing(scrollHeight > clientHeight + 2);
+      setIsOverflowing(scrollHeight > clientHeight + 4);
     } else {
       setBodyOccupancy(0);
       setIsOverflowing(false);

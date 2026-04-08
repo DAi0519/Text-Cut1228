@@ -567,9 +567,9 @@ function randomPalette(count: number, theme?: GradientThemeInput) {
   const isDark = theme.colorway === "neon";
   const colors = isDark
     ? [
-        mixHex("#0f1012", theme.backgroundColor, 0.55 + Math.random() * 0.18),
-        mixHex(theme.accentColor, "#0f1012", 0.08 + Math.random() * 0.12),
-        mixHex("#d7d7db", theme.textColor, 0.35 + Math.random() * 0.18),
+        theme.accentColor,
+        "#2a3138",
+        "#15181c",
       ]
     : [
         mixHex("#ffffff", theme.backgroundColor, Math.random() * 0.04),
@@ -753,7 +753,7 @@ export function createDefaultGradientBackground(
     warpShape: "smooth-noise",
     warp: 27,
     warpSize: 33,
-    noise: 53,
+    noise: 25,
     seed,
     colors: randomPalette(DEFAULT_COLOR_COUNT, theme),
     controlPoints: generateControlPoints(DEFAULT_COLOR_COUNT, seed),

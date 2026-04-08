@@ -485,7 +485,7 @@ const normalizeGradientBackground = (
     noise:
       typeof raw.noise === "number" && Number.isFinite(raw.noise)
         ? clamp(raw.noise, 0, 100)
-        : 53,
+        : 25,
     seed: fallbackSeed,
     colors,
     controlPoints,
