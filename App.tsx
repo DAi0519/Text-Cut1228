@@ -2128,9 +2128,69 @@ const App: React.FC = () => {
                 </h1>
               </div>
 
-              {/* Hero Input Area */}
-              <div className="relative group mx-auto w-full max-w-3xl min-h-[360px] sm:min-h-0 sm:aspect-[4/3]">
-                <div className="absolute inset-0 bg-white rounded-3xl shadow-[0_2px_8px_-2px_rgba(15,23,42,0.06),0_12px_24px_-4px_rgba(15,23,42,0.08),0_24px_64px_-12px_rgba(15,23,42,0.12)] border border-black/[0.06] overflow-hidden flex flex-col transition-colors duration-300 focus-within:border-black/10">
+              {/* Theme/Composition Tabs */}
+              <div className="relative mx-auto w-full max-w-3xl flex flex-col">
+                <div className="flex -space-x-[18px] -mb-[1px] pt-4">
+                  {[
+                    { id: "editorial", label: "Editorial", zBase: 30 },
+                    { id: "classic", label: "Classic", zBase: 20 },
+                    { id: "technical", label: "Technical", zBase: 10 },
+                  ].map((comp) => {
+                    const isActive = config.composition === comp.id;
+                    const isFirst = comp.id === "editorial";
+                    const isVisualStraightLeft = isFirst || isActive;
+                    return (
+                      <button
+                        key={comp.id}
+                        onClick={() => setConfig((prev) => ({ ...prev, composition: comp.id as any }))}
+                        className={`
+                          relative h-[46px] px-8 text-[11px] font-bold tracking-widest uppercase transition-all duration-300
+                          flex items-center justify-center min-w-[124px] group outline-none
+                          ${isActive ? "translate-y-[1px]" : "translate-y-[2px] hover:-translate-y-[0px]"}
+                        `}
+                        style={{
+                          zIndex: isActive ? 40 : comp.zBase,
+                        }}
+                      >
+                        {/* Trapezoid Folder Background */}
+                        <div 
+                          className={`
+                            absolute inset-0 transition-all duration-500 ease-out
+                            border-x border-t border-black/[0.08] shadow-[0_-2px_8px_rgba(15,23,42,0.04)]
+                            ${isActive ? "bg-white scale-y-[1.12]" : `bg-[#f4f4f5] scale-y-[0.98] group-hover:scale-y-[1.04]`}
+                          `}
+                          style={{
+                            transformOrigin: "bottom left",
+                            transform: "perspective(60px) rotateX(12deg)",
+                            borderRadius: "14px 14px 0 0",
+                          }}
+                        />
+                        
+                        {/* Seamless Connection Line (only on active) */}
+                        {isActive && (
+                          <div className="absolute inset-x-[1px] -bottom-[1px] h-[3px] bg-white z-20 transition-opacity duration-300"></div>
+                        )}
+
+                        {/* Label Content */}
+                        <span 
+                          className={`
+                            relative z-10 transition-all duration-300
+                            ${isActive ? "text-black" : "text-black/50 group-hover:text-black/70"}
+                            ${isVisualStraightLeft ? "-translate-x-1.5" : "translate-x-0"}
+                          `}
+                        >
+                          {comp.label}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Hero Input Area */}
+                <div 
+                  className="relative group w-full min-h-[360px] sm:min-h-0 sm:aspect-[4/3] bg-white rounded-tl-none rounded-tr-3xl rounded-b-3xl shadow-[0_2px_8px_-2px_rgba(15,23,42,0.06),0_12px_24px_-4px_rgba(15,23,42,0.08),0_24px_64px_-12px_rgba(15,23,42,0.12)] border border-black/[0.06] overflow-hidden flex flex-col transition-all duration-300 focus-within:border-black/10 focus-within:shadow-[0_8px_16px_-4px_rgba(15,23,42,0.08),0_24px_48px_-12px_rgba(15,23,42,0.12),0_48px_84px_-24px_rgba(15,23,42,0.16)]"
+                  style={{ zIndex: 35 }}
+                >
                   
                   {/* Metadata & Content: 2-Column Grid Area */}
                   <div className="flex flex-col flex-1 min-h-0 px-5 pt-6 pb-5 sm:px-8 sm:pt-7 sm:pb-6">
