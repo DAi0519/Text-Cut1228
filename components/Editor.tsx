@@ -1,8 +1,8 @@
 /**
  * [INPUT]: 依赖 lucide-react 的 Type/Grid/AlignLeft/X 图标，依赖 ../types 的 CardConfig/Preset
- * [OUTPUT]: 对外提供 Editor 组件（长文输入区 + 构图预设选择器）
- * [POS]: components/ 的用户入口组件，位于 App.tsx 主舞台顶部 Hero 区；
- *        仅负责输入捕获与预设触发，不持有任何文字处理或 AI 调用逻辑
+ * [OUTPUT]: 对外提供 Editor 组件（长文输入区 + 元信息编辑 + 双色板切换）
+ * [POS]: components/ 的独立输入面板；当前作为备用入口保留，
+ *        仅负责输入捕获与配置改写，不持有任何文字处理或 AI 调用逻辑
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 import React from 'react';
@@ -38,16 +38,6 @@ const COLORWAYS: Preset[] = [
       backgroundColor: '#111111',
       textColor: '#ffffff',
       accentColor: '#ccff00',
-    }
-  },
-  {
-    id: 'carbon',
-    name: 'Carbon',
-    config: {
-      colorway: 'carbon',
-      backgroundColor: '#18181b',
-      textColor: '#e4e4e7',
-      accentColor: '#ea580c',
     }
   }
 ];
@@ -139,7 +129,7 @@ export const Editor: React.FC<EditorProps> = ({
              <Grid size={14} className="opacity-40" />
              <span className="text-xs font-bold uppercase tracking-wide">Finish</span>
           </div>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 gap-3">
              {COLORWAYS.map(c => (
                <button
                  key={c.id}

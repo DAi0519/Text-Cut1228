@@ -626,6 +626,12 @@ const normalizeConfig = (
   };
 };
 
+const getThemeBgClass = (composition: string) => {
+  if (composition === "classic") return "bg-[#f4f4f2]"; 
+  if (composition === "technical") return "bg-[#fafafa]";
+  return "bg-white";
+};
+
 const App: React.FC = () => {
   // --- State ---
   const [inputText, setInputText] = useState<string>(() => {
@@ -2083,7 +2089,7 @@ const App: React.FC = () => {
 
   // --- Render ---
   return (
-    <div className="relative h-screen w-full overflow-hidden bg-[#fafafa] font-sans text-[#18181b] flex flex-col">
+    <div className="relative h-[100dvh] w-full overflow-hidden bg-[#fafafa] font-sans text-[#18181b] flex flex-col">
       {/* Hidden File Input — background image */}
       <input
         type="file"
@@ -2102,7 +2108,7 @@ const App: React.FC = () => {
       />
 
       {/* Main Content Stage */}
-      <div className="flex-1 relative overflow-hidden bg-white transition-all duration-700">
+      <div className={`flex-1 relative bg-white transition-all duration-700 ${hasContent ? "overflow-hidden" : "overflow-y-auto"}`}>
         {/* Background Texture */}
         <div
           className="absolute inset-0 pointer-events-none opacity-20 mix-blend-multiply"
@@ -2117,20 +2123,20 @@ const App: React.FC = () => {
 
         {!hasContent ? (
           // --- HERO INPUT MODE ---
-          <div className="absolute inset-0 flex flex-col items-center justify-center p-4 sm:p-6 animate-in fade-in zoom-in-95 duration-700">
-            <div className="w-full max-w-5xl flex flex-col items-center gap-8 sm:gap-14">
+          <div className="absolute inset-0 overflow-y-auto overscroll-contain animate-in fade-in zoom-in-95 duration-700">
+            <div className="mx-auto flex min-h-full w-full max-w-6xl flex-col items-center justify-start gap-6 px-4 py-6 sm:gap-10 sm:px-6 sm:py-8 lg:justify-center lg:gap-12">
               
               {/* Slogan */}
-              <div className="w-full px-4 text-center sm:px-0">
-                <h1 className="mx-auto whitespace-nowrap text-[clamp(1.5rem,6.8vw,3rem)] font-bold tracking-[-0.06em] text-[#18181b] leading-[0.94] sm:text-5xl md:text-7xl">
+              <div className="w-full text-center">
+                <h1 className="mx-auto max-w-[12ch] text-balance text-[clamp(2.75rem,7vw,6rem)] font-bold tracking-[-0.04em] text-[#18181b] leading-[0.9] sm:max-w-[11ch] lg:max-w-none">
                   Quantity produces quality
                   <span className="text-[#ea580c]">.</span>
                 </h1>
               </div>
 
               {/* Theme/Composition Tabs */}
-              <div className="relative mx-auto w-full max-w-3xl flex flex-col">
-                <div className="flex -space-x-[18px] -mb-[1px] pt-4">
+              <div className="relative mx-auto flex w-full max-w-4xl flex-col">
+                <div className="flex overflow-x-auto overscroll-x-contain -space-x-[14px] -mb-[1px] pr-1 pt-2 pb-1 no-scrollbar sm:-space-x-[18px] sm:pt-4">
                   {[
                     { id: "editorial", label: "Editorial", zBase: 30 },
                     { id: "classic", label: "Classic", zBase: 20 },
@@ -2144,9 +2150,9 @@ const App: React.FC = () => {
                         key={comp.id}
                         onClick={() => setConfig((prev) => ({ ...prev, composition: comp.id as any }))}
                         className={`
-                          relative h-[46px] px-8 text-[11px] font-bold tracking-widest uppercase transition-all duration-300
-                          flex items-center justify-center min-w-[124px] group outline-none
-                          ${isActive ? "translate-y-[1px]" : "translate-y-[2px] hover:-translate-y-[0px]"}
+                          relative h-[42px] px-5 text-[10px] font-bold tracking-[0.24em] uppercase transition-all duration-300
+                          flex items-center justify-center min-w-[112px] shrink-0 group outline-none sm:h-[46px] sm:min-w-[124px] sm:px-8 sm:text-[11px]
+                          ${isActive ? "translate-y-[1px]" : "translate-y-[2px]"}
                         `}
                         style={{
                           zIndex: isActive ? 40 : comp.zBase,
@@ -2157,7 +2163,7 @@ const App: React.FC = () => {
                           className={`
                             absolute inset-0 transition-all duration-500 ease-out
                             border-x border-t border-black/[0.08] shadow-[0_-2px_8px_rgba(15,23,42,0.04)]
-                            ${isActive ? "bg-white scale-y-[1.12]" : `bg-[#f4f4f5] scale-y-[0.98] group-hover:scale-y-[1.04]`}
+                            ${isActive ? `${getThemeBgClass(config.composition)} scale-y-[1.12]` : `bg-[#f4f4f5] scale-y-[0.98]`}
                           `}
                           style={{
                             transformOrigin: "bottom left",
@@ -2168,14 +2174,14 @@ const App: React.FC = () => {
                         
                         {/* Seamless Connection Line (only on active) */}
                         {isActive && (
-                          <div className="absolute inset-x-[1px] -bottom-[1px] h-[3px] bg-white z-20 transition-opacity duration-300"></div>
+                          <div className={`absolute inset-x-[1px] -bottom-[1px] h-[3px] ${getThemeBgClass(config.composition)} z-20 transition-opacity duration-300`}></div>
                         )}
 
                         {/* Label Content */}
                         <span 
                           className={`
                             relative z-10 transition-all duration-300
-                            ${isActive ? "text-black" : "text-black/50 group-hover:text-black/70"}
+                            ${isActive ? "text-[#ea580c]" : "text-black/50 group-hover:text-black/70"}
                             ${isVisualStraightLeft ? "-translate-x-1.5" : "translate-x-0"}
                           `}
                         >
@@ -2188,70 +2194,227 @@ const App: React.FC = () => {
 
                 {/* Hero Input Area */}
                 <div 
-                  className="relative group w-full min-h-[360px] sm:min-h-0 sm:aspect-[4/3] bg-white rounded-tl-none rounded-tr-3xl rounded-b-3xl shadow-[0_2px_8px_-2px_rgba(15,23,42,0.06),0_12px_24px_-4px_rgba(15,23,42,0.08),0_24px_64px_-12px_rgba(15,23,42,0.12)] border border-black/[0.06] overflow-hidden flex flex-col transition-all duration-300 focus-within:border-black/10 focus-within:shadow-[0_8px_16px_-4px_rgba(15,23,42,0.08),0_24px_48px_-12px_rgba(15,23,42,0.12),0_48px_84px_-24px_rgba(15,23,42,0.16)]"
+                  className={`relative isolate group flex w-full min-h-[22rem] flex-col overflow-hidden rounded-tl-none rounded-tr-[1.75rem] rounded-b-[1.75rem] border border-black/[0.06] ${getThemeBgClass(config.composition)} shadow-[0_2px_8px_-2px_rgba(15,23,42,0.06),0_12px_24px_-4px_rgba(15,23,42,0.08),0_24px_64px_-12px_rgba(15,23,42,0.12)] transition-all duration-300 focus-within:border-black/10 focus-within:shadow-[0_8px_16px_-4px_rgba(15,23,42,0.08),0_24px_48px_-12px_rgba(15,23,42,0.12),0_48px_84px_-24px_rgba(15,23,42,0.16)] md:min-h-[26rem] md:max-h-[min(68dvh,42rem)]`}
                   style={{ zIndex: 35 }}
                 >
                   
-                  {/* Metadata & Content: 2-Column Grid Area */}
-                  <div className="flex flex-col flex-1 min-h-0 px-5 pt-6 pb-5 sm:px-8 sm:pt-7 sm:pb-6">
-                    {/* Header Row 1: Title */}
-                    <div className="flex items-center mb-1 shrink-0">
-                      <span className="text-xs font-bold uppercase tracking-wider text-black/90 shrink-0 select-none w-20 sm:w-24">Title</span>
-                      <input
-                        type="text"
-                        value={config.title}
-                        onChange={(e) => setConfig(prev => ({ ...prev, title: e.target.value }))}
-                        placeholder="Add a title..."
-                        className="w-full h-10 bg-transparent text-lg font-bold outline-none text-black/90 placeholder:text-black/20 tracking-[0.01em] font-oppo sm:text-xl"
-                      />
+                  {config.composition === 'editorial' && (
+                    <>
+                      <div className="relative z-10 flex flex-col flex-1 min-h-0 px-5 pt-6 pb-5 sm:px-8 sm:pt-7 sm:pb-6">
+                        <div className="flex items-center mb-1 shrink-0">
+                          <span className="text-xs font-bold uppercase tracking-wider text-black/90 shrink-0 select-none w-20 sm:w-24">Title</span>
+                          <input
+                            type="text"
+                            value={config.title}
+                            onChange={(e) => setConfig(prev => ({ ...prev, title: e.target.value }))}
+                            placeholder="Add a title..."
+                            className="w-full h-10 bg-transparent text-lg font-bold outline-none text-black/90 placeholder:text-black/20 tracking-[0.01em] font-oppo sm:text-xl"
+                          />
+                        </div>
+                        <div className="flex items-center mb-3 shrink-0">
+                          <span className="text-xs font-bold uppercase tracking-wider text-black/90 shrink-0 select-none w-20 sm:w-24">Author</span>
+                          <input
+                            type="text"
+                            value={config.authorName}
+                            onChange={(e) => setConfig(prev => ({ ...prev, authorName: e.target.value }))}
+                            placeholder="Add an author..."
+                            className="w-full h-8 bg-transparent text-sm font-medium outline-none text-black/60 placeholder:text-black/20 tracking-[0.01em] font-oppo sm:text-base"
+                          />
+                        </div>
+                        <div className="flex flex-1 min-h-0">
+                          <span className="text-xs font-bold uppercase tracking-wider text-black/90 shrink-0 select-none w-20 pt-[8px] sm:w-24">Content</span>
+                          <textarea
+                            value={inputText}
+                            onChange={(e) => setInputText(e.target.value)}
+                            placeholder="Paste your article or notes here..."
+                            className="w-full h-full flex-1 text-base text-black/90 placeholder:text-black/20 outline-none resize-none bg-transparent leading-[1.8] font-oppo tracking-wide selection:bg-orange-100 pr-4 -mr-4 custom-scrollbar sm:text-lg"
+                            spellCheck={false}
+                          />
+                        </div>
+                      </div>
+                      
+                      <button
+                         type="button"
+                         onClick={handleProcess}
+                         disabled={!inputText.trim() || isProcessing}
+                         className={`
+                           relative z-20 w-full h-14 shrink-0 flex items-center justify-end px-5 gap-3 transition-colors duration-300 border-t outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#ea580c] sm:h-12 sm:px-8
+                           ${isProcessing
+                             ? "border-[#ea580c]/20 bg-[#ea580c]/[0.04] text-[#ea580c] cursor-wait"
+                             : !inputText.trim()
+                               ? "border-black/[0.06] bg-black/[0.02] text-black/25 cursor-not-allowed"
+                               : "border-black/[0.08] bg-white text-black/80 hover:bg-[#ea580c] hover:border-[#ea580c] hover:text-white active:bg-[#c24100]"
+                           }
+                         `}
+                      >
+                         <span className="relative top-[0.5px] text-xs font-bold uppercase tracking-[0.16em] sm:tracking-[0.2em]">
+                           {isProcessing ? "Processing" : "Generate Cards"}
+                         </span>
+                         {isProcessing ? (
+                           <div className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin"></div>
+                         ) : (
+                           <ArrowRight size={16} strokeWidth={2.5} />
+                         )}
+                      </button>
+                    </>
+                  )}
+
+                  {config.composition === 'classic' && (
+                    <div className="relative z-10 flex flex-col flex-1 h-full font-sans transition-opacity duration-300 animate-in fade-in">
+                      <div className="flex flex-col sm:flex-row border-b border-black/[0.08]">
+                         <div className="flex-1 border-b sm:border-b-0 sm:border-r border-black/[0.08] px-5 pt-5 pb-3 sm:px-6 sm:pt-6 sm:pb-3 flex flex-col justify-center transition-colors focus-within:bg-white/40">
+                            <label className="text-[10px] font-bold text-black/40 uppercase tracking-widest mb-3 flex items-center gap-2">
+                              Title
+                              <div className="w-1 h-1 rounded-full bg-black/10"></div>
+                            </label>
+                            <input
+                              type="text"
+                              value={config.title}
+                              onChange={(e) => setConfig(prev => ({ ...prev, title: e.target.value }))}
+                              className="w-full bg-transparent text-lg sm:text-xl font-bold outline-none text-black/90 placeholder:text-black/20 font-oppo"
+                              placeholder="Document identifier..."
+                            />
+                         </div>
+                         <div className="w-full sm:w-[35%] px-5 pt-5 pb-3 sm:px-6 sm:pt-6 sm:pb-3 flex flex-col justify-center transition-colors focus-within:bg-white/40">
+                            <label className="text-[10px] font-bold text-black/40 uppercase tracking-widest mb-3 flex items-center gap-2">
+                              Author
+                              <div className="w-1 h-1 rounded-full bg-black/10"></div>
+                            </label>
+                            <input
+                              type="text"
+                              value={config.authorName}
+                              onChange={(e) => setConfig(prev => ({ ...prev, authorName: e.target.value }))}
+                              className="w-full bg-transparent text-base sm:text-lg font-medium outline-none text-black/70 placeholder:text-black/20 font-oppo"
+                              placeholder="Creator name..."
+                            />
+                         </div>
+                      </div>
+                      
+                      <div className="flex-1 flex flex-col px-5 pt-5 pb-5 sm:px-6 sm:pt-6 sm:pb-6 min-h-0 bg-white/30 transition-colors focus-within:bg-white/60">
+                         <div className="flex items-center justify-between mb-3">
+                           <label className="text-[10px] font-bold text-black/40 uppercase tracking-widest">
+                             Data Input
+                           </label>
+                           <div className="flex gap-1.5 opacity-80">
+                             <div className="w-1.5 h-1.5 rounded-full bg-black/10" />
+                             <div className="w-1.5 h-1.5 rounded-full bg-black/10" />
+                             <div className="w-1.5 h-1.5 rounded-full bg-[#ea580c]" />
+                           </div>
+                         </div>
+                         <textarea
+                           value={inputText}
+                           onChange={(e) => setInputText(e.target.value)}
+                           className="w-full flex-1 bg-transparent text-base sm:text-lg leading-[1.8] outline-none resize-none placeholder:text-black/20 text-black/80 font-oppo selection:bg-[#ea580c]/20 custom-scrollbar pr-2"
+                           placeholder="Enter primary structural content here..."
+                           spellCheck={false}
+                         />
+                      </div>
+
+                      <button
+                         type="button"
+                         onClick={handleProcess}
+                         disabled={!inputText.trim() || isProcessing}
+                         className={`
+                           relative z-20 w-full h-14 shrink-0 flex items-center justify-between px-6 transition-colors duration-300 border-t outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#ea580c] sm:h-12 sm:px-8 group
+                           ${isProcessing
+                             ? "border-[#ea580c]/20 bg-[#ea580c]/[0.04] text-[#ea580c] cursor-wait"
+                             : !inputText.trim()
+                               ? "border-black/[0.06] bg-black/[0.02] text-black/25 cursor-not-allowed"
+                               : "border-black/[0.08] bg-white text-black/80 hover:bg-[#ea580c] hover:border-[#ea580c] hover:text-white active:bg-[#c24100]"
+                           }
+                         `}
+                      >
+                         <span className="relative top-[0.5px] text-xs font-bold uppercase tracking-[0.16em] sm:tracking-[0.2em]">
+                           {isProcessing ? "Processing" : "Generate Output"}
+                         </span>
+                         {isProcessing ? (
+                           <div className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin"></div>
+                         ) : (
+                           <ArrowRight size={16} strokeWidth={2.5} />
+                         )}
+                      </button>
                     </div>
-                    {/* Header Row 2: Author */}
-                    <div className="flex items-center mb-3 shrink-0">
-                      <span className="text-xs font-bold uppercase tracking-wider text-black/90 shrink-0 select-none w-20 sm:w-24">Author</span>
-                      <input
-                        type="text"
-                        value={config.authorName}
-                        onChange={(e) => setConfig(prev => ({ ...prev, authorName: e.target.value }))}
-                        placeholder="Add an author..."
-                        className="w-full h-8 bg-transparent text-sm font-medium outline-none text-black/60 placeholder:text-black/20 tracking-[0.01em] font-oppo sm:text-base"
-                      />
+                  )}
+
+                  {config.composition === 'technical' && (
+                    <div className="relative z-10 flex flex-col flex-1 h-full font-mono text-black/90 transition-opacity duration-300 animate-in fade-in">
+                      <div className="relative z-10 p-5 sm:p-6 sm:pb-0 flex flex-col gap-4 sm:gap-5">
+                         <div className="flex flex-col sm:flex-row gap-4 sm:gap-8 border-b border-black/10 pb-3">
+                            <div className="flex-1 flex flex-col group justify-center">
+                               <div className="flex items-center gap-2 mb-3 opacity-40 group-focus-within:opacity-100 transition-opacity">
+                                  <span className="text-[9px] uppercase tracking-widest bg-[#ea580c]/10 text-[#ea580c] px-1 py-0.5">T-01</span>
+                                  <span className="text-[10px] tracking-widest uppercase font-bold text-black/60">Target.Title</span>
+                               </div>
+                               <input
+                                 type="text"
+                                 value={config.title}
+                                 onChange={(e) => setConfig(prev => ({ ...prev, title: e.target.value }))}
+                                 className="w-full bg-transparent text-lg sm:text-xl font-bold outline-none placeholder:text-black/15 font-oppo"
+                                 placeholder="[ ENTER TITLE ]"
+                               />
+                            </div>
+                            <div className="w-full sm:w-1/3 flex flex-col group justify-center">
+                               <div className="flex items-center gap-2 mb-3 opacity-40 group-focus-within:opacity-100 transition-opacity">
+                                  <span className="text-[9px] uppercase tracking-widest bg-black/5 text-black/60 px-1 py-0.5">A-02</span>
+                                  <span className="text-[10px] tracking-widest uppercase font-bold text-black/60">Entity.Auth</span>
+                               </div>
+                               <input
+                                 type="text"
+                                 value={config.authorName}
+                                 onChange={(e) => setConfig(prev => ({ ...prev, authorName: e.target.value }))}
+                                 className="w-full bg-transparent text-base sm:text-lg font-medium outline-none placeholder:text-black/15 font-oppo"
+                                 placeholder="[ ENTER AUTHOR ]"
+                               />
+                            </div>
+                         </div>
+                      </div>
+                      
+                      <div className="relative z-10 flex-1 p-5 sm:p-6 flex flex-col min-h-0">
+                         <div className="flex items-center justify-between mb-3">
+                           <span className="text-[10px] tracking-widest uppercase text-black/40 font-bold">
+                             Buffer.Stream
+                           </span>
+                         </div>
+                         <textarea
+                           value={inputText}
+                           onChange={(e) => setInputText(e.target.value)}
+                           className="w-full flex-1 bg-transparent text-base sm:text-lg leading-[1.8] outline-none resize-none placeholder:text-black/15 text-black/80 font-oppo selection:bg-[#ea580c]/20 custom-scrollbar"
+                           placeholder="> PASTE DATA STREAM HERE..."
+                           spellCheck={false}
+                         />
+                      </div>
+
+                      <button
+                         type="button"
+                         onClick={handleProcess}
+                         disabled={!inputText.trim() || isProcessing}
+                         className={`
+                           relative z-20 w-full h-14 shrink-0 flex items-center justify-between px-6 transition-all duration-300 border-t outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#ea580c] sm:h-12 sm:px-8 group
+                           ${isProcessing
+                             ? "border-[#ea580c]/20 bg-[#ea580c]/[0.04] text-[#ea580c] cursor-wait"
+                             : !inputText.trim()
+                               ? "border-black/[0.06] bg-black/[0.02] text-black/25 cursor-not-allowed"
+                               : "border-black/[0.08] bg-white text-black/80 hover:bg-[#ea580c] hover:border-[#ea580c] hover:text-white active:bg-[#c24100]"
+                           }
+                         `}
+                      >
+                         <div className="flex items-center gap-3">
+                           <div className="w-1.5 h-3 rounded-[1px] bg-[#ea580c] group-hover:bg-white transition-colors duration-300" />
+                           <span className="text-[10px] font-bold tracking-widest uppercase opacity-60">
+                             {isProcessing ? "SYS_BUSY" : "SYS_READY"}
+                           </span>
+                         </div>
+                         <div className="flex items-center gap-2">
+                           <span className="relative top-[0.5px] text-xs font-bold uppercase tracking-[0.16em] sm:tracking-[0.2em]">
+                             {isProcessing ? "Processing" : "Execute"}
+                           </span>
+                           {!isProcessing && (
+                             <ArrowRight size={16} strokeWidth={2.5} />
+                           )}
+                         </div>
+                      </button>
                     </div>
-                    {/* Body Content Row */}
-                    <div className="flex flex-1 min-h-0">
-                      <span className="text-xs font-bold uppercase tracking-wider text-black/90 shrink-0 select-none w-20 pt-[8px] sm:w-24">Content</span>
-                      <textarea
-                        value={inputText}
-                        onChange={(e) => setInputText(e.target.value)}
-                        placeholder="Paste your article or notes here..."
-                        className="w-full h-full flex-1 text-base text-black/90 placeholder:text-black/20 outline-none resize-none bg-transparent leading-[1.8] font-oppo tracking-wide selection:bg-orange-100 pr-4 -mr-4 custom-scrollbar sm:text-lg"
-                        spellCheck={false}
-                      />
-                    </div>
-                  </div>
-                  
-                  {/* Full-width Structural Action Bar */}
-                  <button
-                     onClick={handleProcess}
-                     disabled={!inputText.trim() || isProcessing}
-                     className={`
-                       w-full h-14 shrink-0 flex items-center justify-end px-5 gap-3 transition-colors duration-300 border-t outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#ea580c] sm:h-12 sm:px-8
-                       ${isProcessing
-                         ? "border-[#ea580c]/20 bg-[#ea580c]/[0.04] text-[#ea580c] cursor-wait"
-                         : !inputText.trim()
-                           ? "border-black/[0.06] bg-black/[0.02] text-black/25 cursor-not-allowed"
-                           : "border-black/[0.08] bg-white text-black/80 hover:bg-[#ea580c] hover:border-[#ea580c] hover:text-white active:bg-[#c24100]"
-                       }
-                     `}
-                  >
-                     <span className="relative top-[0.5px] text-xs font-bold uppercase tracking-[0.16em] sm:tracking-[0.2em]">
-                       {isProcessing ? "Processing" : "Generate Cards"}
-                     </span>
-                     {isProcessing ? (
-                       <div className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin"></div>
-                     ) : (
-                       <ArrowRight size={16} strokeWidth={2.5} />
-                     )}
-                  </button>
+                  )}
                 </div>
               </div>
 

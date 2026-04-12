@@ -1,8 +1,8 @@
 /**
  * [INPUT]: 依赖 ../types 的 CardConfig/AspectRatio/FontStyle，依赖 lucide-react 的图标
- * [OUTPUT]: 对外提供 StylePanel 组件（字体/字号/比例/背景/渐变参数控制侧栏）
- * [POS]: components/ 的样式配置子面板，作为 Console.tsx Style Tab 的内容区渲染；
- *        所有变更通过 onConfigChange 回调向上提升至 App.tsx 全局 config 状态
+ * [OUTPUT]: 对外提供 StylePanel 组件（字体/字号/比例控制侧栏）
+ * [POS]: components/ 的独立样式配置面板；当前作为备用面板保留，
+ *        所有变更通过 setConfig 回调向上提升至 App.tsx 全局 config 状态
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 import React from 'react';
@@ -23,10 +23,9 @@ export const StylePanel: React.FC<StylePanelProps> = ({ config, setConfig, onClo
 
   const ratios = Object.values(AspectRatio);
   const fontStyles = [
-    { value: FontStyle.SANS, label: 'Sans' },
-    { value: FontStyle.SERIF, label: 'Serif' }, // Display as Serif, logic maps to Zhi Song
-    { value: FontStyle.MING_LIGHT, label: 'Ming' },
-    { value: FontStyle.MONO, label: 'Mono' },
+    { value: FontStyle.CHILL, label: 'Chill', sampleClass: 'font-chill' },
+    { value: FontStyle.OPPO, label: 'OPPO', sampleClass: 'font-oppo' },
+    { value: FontStyle.SWEI, label: 'Swei', sampleClass: 'font-swei' },
   ];
 
   return (
@@ -79,7 +78,7 @@ export const StylePanel: React.FC<StylePanelProps> = ({ config, setConfig, onClo
              <span className="text-xs font-bold uppercase tracking-wide">Typeface</span>
            </div>
            
-           <div className="grid grid-cols-2 gap-px bg-black/10 border border-black/10 rounded overflow-hidden">
+           <div className="grid grid-cols-3 gap-px bg-black/10 border border-black/10 rounded overflow-hidden">
              {fontStyles.map(style => (
                <button
                 key={style.value}
@@ -91,11 +90,7 @@ export const StylePanel: React.FC<StylePanelProps> = ({ config, setConfig, onClo
                     : 'bg-[#f4f4f5] text-[#71717a] hover:text-black'}
                 `}
                >
-                 <span className={`text-lg mb-1 ${
-                    style.value === FontStyle.SERIF ? 'font-serif-sc' : 
-                    style.value === FontStyle.MING_LIGHT ? 'font-ming-light' :
-                    style.value === FontStyle.MONO ? 'font-mono text-sm' : 'font-sans'
-                 }`}>Ag</span>
+                 <span className={`mb-1 text-lg ${style.sampleClass}`}>Ag</span>
                  <span className="text-[9px] uppercase tracking-widest opacity-60">{style.label}</span>
                </button>
              ))}
