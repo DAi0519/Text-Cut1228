@@ -2138,12 +2138,12 @@ const App: React.FC = () => {
               <div className="relative mx-auto flex w-full max-w-4xl flex-col">
                 <div className="flex overflow-x-auto overscroll-x-contain -space-x-[14px] -mb-[1px] pr-1 pt-2 pb-1 no-scrollbar sm:-space-x-[18px] sm:pt-4">
                   {[
-                    { id: "editorial", label: "Editorial", zBase: 30 },
-                    { id: "classic", label: "Classic", zBase: 20 },
-                    { id: "technical", label: "Technical", zBase: 10 },
-                  ].map((comp) => {
+                    { id: "classic", label: "Classic", zBase: 30 },
+                    { id: "technical", label: "Technical", zBase: 20 },
+                    { id: "editorial", label: "Editorial", zBase: 10 },
+                  ].map((comp, index) => {
                     const isActive = config.composition === comp.id;
-                    const isFirst = comp.id === "editorial";
+                    const isFirst = index === 0;
                     const isVisualStraightLeft = isFirst || isActive;
                     return (
                       <button
