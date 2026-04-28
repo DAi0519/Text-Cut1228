@@ -50,6 +50,7 @@ const VALID_FONT_STYLES = new Set([
   FontStyle.CHILL,
   FontStyle.OPPO,
   FontStyle.SWEI,
+  FontStyle.SMILEY,
 ]);
 const VALID_GRADIENT_TYPES = new Set<GradientType>([
   "simple",
@@ -246,6 +247,8 @@ const getPreviewFontClass = (style: FontStyle) => {
       return "font-chill";
     case FontStyle.OPPO:
       return "font-oppo";
+    case FontStyle.SMILEY:
+      return "font-smiley";
     case FontStyle.SWEI:
     default:
       return "font-swei";

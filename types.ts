@@ -11,6 +11,7 @@ export enum FontStyle {
   CHILL = 'Chill',
   OPPO = 'Oppo',
   SWEI = 'Swei',
+  SMILEY = 'Smiley',
 }
 
 export enum AspectRatio {

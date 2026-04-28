@@ -841,6 +841,7 @@ export const Card = forwardRef<CardHandle, CardProps>(({ content, sectionTitle, 
     switch (style) {
       case FontStyle.CHILL: return 'font-chill';
       case FontStyle.OPPO: return 'font-oppo';
+      case FontStyle.SMILEY: return 'font-smiley';
       case FontStyle.SWEI: default: return 'font-swei'; 
     }
   };

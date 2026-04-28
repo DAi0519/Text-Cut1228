@@ -26,6 +26,7 @@ export const StylePanel: React.FC<StylePanelProps> = ({ config, setConfig, onClo
     { value: FontStyle.CHILL, label: 'Chill', sampleClass: 'font-chill' },
     { value: FontStyle.OPPO, label: 'OPPO', sampleClass: 'font-oppo' },
     { value: FontStyle.SWEI, label: 'Swei', sampleClass: 'font-swei' },
+    { value: FontStyle.SMILEY, label: 'Smiley', sampleClass: 'font-smiley' },
   ];
 
   return (

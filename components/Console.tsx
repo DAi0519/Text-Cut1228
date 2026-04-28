@@ -195,6 +195,7 @@ export const Console: React.FC<ConsoleProps> = ({
     { value: FontStyle.CHILL, label: 'Chill' },
     { value: FontStyle.OPPO, label: 'OPPO' },
     { value: FontStyle.SWEI, label: 'Swei' },
+    { value: FontStyle.SMILEY, label: 'Smiley' },
   ];
 
   const compositions: { value: Composition, label: string }[] = [

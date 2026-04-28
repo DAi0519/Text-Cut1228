@@ -53,7 +53,7 @@ Console / html-to-image → PNG 导出 (含真圆角 Canvas Mask)
 - 首页 Hero 在无内容状态下允许内部纵向滚动，避免短屏桌面直接裁切
 - Hero 标题使用 `clamp()` + 自动换行，输入面板按视口高度限制最大高度
 - 当前可用 `Colorway` 仅为 `snow / neon`
-- 当前可用 `FontStyle` 为 `Chill / OPPO / Swei`
+- 当前可用 `FontStyle` 为 `Chill / OPPO / Swei / Smiley`
 
 ## 关键约束
 

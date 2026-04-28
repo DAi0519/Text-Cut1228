@@ -1,7 +1,7 @@
 # components/
 > L2 | 父级: /CLAUDE.md
 
-> 最近更新: `Editor.tsx` 的色板选项已收敛为 `snow / neon`，`StylePanel.tsx` 的字体选项已对齐到 `Chill / OPPO / Swei`
+> 最近更新: `Editor.tsx` 的色板选项已收敛为 `snow / neon`，`StylePanel.tsx` 的字体选项已对齐到 `Chill / OPPO / Swei / Smiley`
 
 UI 组件层 — 负责渲染、交互与用户输入捕获。主状态统一上提到 App.tsx。
 
