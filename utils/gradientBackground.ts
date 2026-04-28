@@ -15,7 +15,7 @@ import {
 
 const MAX_STOPS = 10;
 const MAX_CONTROL_POINTS = 10;
-const DEFAULT_COLOR_COUNT = 3;
+const DEFAULT_COLOR_COUNT = 5;
 
 type GradientThemeInput = Pick<
   CardConfig,
@@ -546,9 +546,38 @@ function hexToRgb01(hex: string): [number, number, number] {
   ];
 }
 
+function hexToHsl(hex: string): [number, number, number] {
+  const [r, g, b] = hexToRgb01(hex);
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const light = (max + min) / 2;
+
+  if (max === min) return [0, 0, light * 100];
+
+  const delta = max - min;
+  const sat = light > 0.5
+    ? delta / (2 - max - min)
+    : delta / (max + min);
+  let hue = 0;
+
+  if (max === r) {
+    hue = (g - b) / delta + (g < b ? 6 : 0);
+  } else if (max === g) {
+    hue = (b - r) / delta + 2;
+  } else {
+    hue = (r - g) / delta + 4;
+  }
+
+  return [normalizeHue(hue * 60), sat * 100, light * 100];
+}
+
 function normalizeHue(hue: number) {
   const normalized = hue % 360;
   return normalized < 0 ? normalized + 360 : normalized;
+}
+
+function clampValue(value: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, value));
 }
 
 function randomPalette(count: number, theme?: GradientThemeInput) {
@@ -565,16 +594,39 @@ function randomPalette(count: number, theme?: GradientThemeInput) {
   }
 
   const isDark = theme.colorway === "neon";
+  const [accentHue, accentSat] = hexToHsl(theme.accentColor);
+  const darkAccentHue = normalizeHue(accentHue + (Math.random() - 0.5) * 10);
+  const darkAccentSat = clampValue(accentSat * 0.62, 24, 58);
   const colors = isDark
     ? [
-        theme.accentColor,
-        "#2a3138",
-        "#15181c",
+        hslToHex(darkAccentHue, darkAccentSat, 8 + Math.random() * 3),
+        hslToHex(
+          normalizeHue(accentHue - 16 - Math.random() * 12),
+          clampValue(accentSat * 0.5, 22, 52),
+          12 + Math.random() * 4,
+        ),
+        mixHex(theme.accentColor, "#ffffff", 0.04 + Math.random() * 0.08),
+        hslToHex(
+          normalizeHue(accentHue + 8 + Math.random() * 10),
+          clampValue(accentSat * 0.48, 22, 48),
+          15 + Math.random() * 5,
+        ),
+        mixHex(
+          hslToHex(
+            normalizeHue(accentHue + 22 + Math.random() * 18),
+            clampValue(accentSat * 0.58, 28, 58),
+            18 + Math.random() * 5,
+          ),
+          "#ffffff",
+          0.02 + Math.random() * 0.05,
+        ),
       ]
     : [
         mixHex("#ffffff", theme.backgroundColor, Math.random() * 0.04),
         mixHex(theme.accentColor, "#ffffff", 0.08 + Math.random() * 0.18),
+        mixHex("#fff7ed", theme.backgroundColor, 0.24 + Math.random() * 0.18),
         mixHex("#efe7dc", theme.backgroundColor, 0.4 + Math.random() * 0.22),
+        mixHex(theme.accentColor, "#ffffff", 0.42 + Math.random() * 0.24),
       ];
 
   return colors.slice(0, safeCount);
